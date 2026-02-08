@@ -52,18 +52,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TsekaLuk/Next-Unicorn-Skill.git"
+    "url": "https://github.com/Nebutra/Next-Unicorn-Skill.git"
   },
-  "homepage": "https://github.com/TsekaLuk/Next-Unicorn-Skill#readme",
+  "homepage": "https://github.com/Nebutra/Next-Unicorn-Skill#readme",
   "bugs": {
-    "url": "https://github.com/TsekaLuk/Next-Unicorn-Skill/issues"
+    "url": "https://github.com/Nebutra/Next-Unicorn-Skill/issues"
   },
   "engines": {
     "node": ">=18"
   },
   "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org"
+    "access": "public"
   },
   "dependencies": {
     "semver": "^7.7.4",

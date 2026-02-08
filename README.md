@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TsekaLuk/Next-Unicorn-Skill/actions/workflows/ci.yml"><img src="https://github.com/TsekaLuk/Next-Unicorn-Skill/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/Nebutra/Next-Unicorn-Skill/actions/workflows/ci.yml"><img src="https://github.com/Nebutra/Next-Unicorn-Skill/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://www.npmjs.com/package/@nebutra/next-unicorn-skill"><img src="https://img.shields.io/npm/v/@nebutra/next-unicorn-skill.svg?color=blue" alt="npm version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue.svg" alt="TypeScript" /></a>
@@ -37,15 +37,26 @@ Snyk, Dependabot, and Renovate manage your *existing* dependencies. They can't f
 
 ## Quick Start
 
+### From npmjs.org (recommended)
+
 ```bash
-# npm
 npm install @nebutra/next-unicorn-skill
-
-# pnpm
+# or
 pnpm add @nebutra/next-unicorn-skill
+```
 
-# bun
-bun add @nebutra/next-unicorn-skill
+### From GitHub Packages
+
+Configure your `.npmrc` first:
+
+```shell
+echo "@nebutra:registry=https://npm.pkg.github.com" >> .npmrc
+```
+
+Then install:
+
+```bash
+npm install @nebutra/next-unicorn-skill
 ```
 
 ```typescript
@@ -306,8 +317,12 @@ Releases are automated via GitHub Actions:
 # Tag a new version
 git tag v2.0.0
 git push origin v2.0.0
-# → CI runs tests → creates GitHub Release → publishes to npm
+# → CI runs tests → creates GitHub Release → publishes to npmjs + GitHub Packages
 ```
+
+Packages are also published automatically on every push to `main` via the CI workflow.
+
+> **Required Secrets**: `NPM_TOKEN` (npmjs.org publish token). `GITHUB_TOKEN` is provided automatically.
 
 See [CHANGELOG.md](./CHANGELOG.md) for version history.
 

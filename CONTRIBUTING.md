@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Next-Unicorn! This document provi
 
 ```bash
 # Clone the repository
-git clone https://github.com/TsekaLuk/Next-Unicorn-Skill.git
+git clone https://github.com/Nebutra/Next-Unicorn-Skill.git
 cd next-unicorn
 
 # Install dependencies
