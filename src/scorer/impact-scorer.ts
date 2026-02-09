@@ -68,8 +68,6 @@ const DIMENSIONS = [
   'ui_aesthetics',
 ] as const;
 
-type Dimension = (typeof DIMENSIONS)[number];
-
 const DEFAULT_WEIGHT = 1 / 7;
 
 /** Default priority domain boost multiplier */
