@@ -1,26 +1,14 @@
 ---
 name: analyze-and-recommend-third-party-optimizations
-description: Scans any codebase and identifies where hand-rolled implementations should be replaced by battle-tested third-party libraries, producing structured migration plans with Context7-verified recommendations
-version: 1.0.3
-author: TsekaLuk
-tags:
-  - code-analysis
-  - third-party-libraries
-  - migration-planning
-  - dependency-optimization
-  - context7-verification
-  - ux-audit
-  - impact-scoring
-  - vulnerability-scanning
-  - auto-update
-  - pr-automation
+description: >-
+  Scan a codebase to identify hand-rolled implementations that should be replaced
+  by third-party libraries, and identify missing capabilities the project should
+  have. Produce structured migration plans with Context7-verified recommendations.
+  Use when analyzing technical debt, auditing dependency health, reviewing
+  hand-rolled code, planning library migrations, or assessing capability gaps.
 ---
 
 # Analyze and Recommend Third-Party Optimizations
-
-## Purpose
-
-Two-pronged analysis: (1) detect hand-rolled code that should be replaced by libraries, and (2) identify missing capabilities the project should have. The scanner pre-filters; the AI agent provides unicorn-grade recommendations — ecosystem-level solutions with rationale, anti-patterns, and alternatives, verified via Context7 MCP.
 
 ## Architecture
 
@@ -31,82 +19,60 @@ hand-rolled code               2. Identify capability gaps         filter, seria
                                using knowledge + Context7
 ```
 
-**Key principles**:
-- No hardcoded library recommendations — the AI agent evaluates project context dynamically
-- Two analysis modes: **replacement** (hand-rolled code → library) and **gap** (missing capability → library)
+**Design constraints**:
+- No hardcoded library recommendations — evaluate project context dynamically
+- Two analysis modes: **replacement** (hand-rolled code found) and **gap** (capability missing entirely)
 
 ## Standard Operating Procedure
 
 ### Step 1: Validate Input
 
-Parse and validate `InputSchema` JSON via Zod. Required fields:
-- **Project metadata**: repo path, languages, package managers, current libraries
-- **Optimization goals**: what the project wants to improve
-- **Constraints**: license allowlist, excluded libraries
-- **Priority focus areas**: Vibe Coding Domains to prioritize
+Parse and validate `InputSchema` JSON via Zod. Read `src/schemas/input.schema.ts` for the full schema.
 
 ### Step 2: Scan Codebase
 
-Run `scanCodebase(input)` to walk the file tree and match against regex patterns. The scanner:
+Run `scanCodebase(input)`. The scanner:
 
-1. Detects workspace roots for monorepo support
-2. Matches code against 20+ domain patterns (i18n, auth, state-management, etc.)
-3. Records each detection with: file path, line range, pattern category, confidence score, domain
-4. Returns `ScanResult` with detections and workspace info
+1. Detect workspace roots for monorepo support
+2. Match code against 20+ domain patterns (i18n, auth, state-management, etc.)
+3. Record each detection with: file path, line range, pattern category, confidence score, domain
+4. Return `ScanResult` with detections and workspace info
 
-Detections contain **no library suggestions** — only what was detected and where.
+Detections contain no library suggestions — only what was detected and where.
 
 ### Step 2.5: Gap Analysis (AI Agent)
 
-Beyond what the scanner detects (hand-rolled code), analyze what the project is **missing entirely**. Review `currentLibraries`, `languages`, `optimizationGoals`, and `priorityFocusAreas` to identify capability gaps.
+Beyond scanner detections, analyze what the project is **missing entirely**. Inspect:
 
-Think at the level of unicorn-grade products:
-- "No structured logging" → recommend pino + OpenTelemetry ecosystem
-- "No error monitoring" → recommend Sentry with source maps + release health
-- "No event-driven workflows" → recommend Inngest for reliable async tasks
-- "Using nodemailer" → recommend Resend for modern transactional email
-- "No rate limiting or bot protection" → recommend Arcjet as unified security layer
-- "REST API without type safety" → recommend tRPC for end-to-end types
+1. **Installed dependencies** — identify low-level tools that should be upgraded to platform-level solutions
+2. **Monorepo structure** — identify missing architectural layers (e.g., shared token package, shared config preset)
+3. **Cross-cutting concerns** — identify absent capabilities: structured logging, error monitoring, rate limiting, event-driven workflows, transactional email, type-safe API layer
+4. **Architecture patterns** — identify opportunities for multi-package solutions (e.g., design-tokens → tailwind-config → ui three-layer architecture for design systems)
 
-Provide each gap as a `GapRecommendation`:
-```typescript
-{
-  domain: string;                // e.g., "observability"
-  description: string;           // e.g., "No structured logging detected"
-  recommendedLibrary: { name, version, license, rationale?, ecosystem?, antiPatterns?, alternatives? };
-  priority: 'critical' | 'recommended' | 'nice-to-have';
-}
-```
+Analyze at three levels of depth:
+- **Single library gap**: missing one tool (e.g., no form validation library)
+- **Ecosystem gap**: missing a coordinated set of tools (e.g., no observability stack)
+- **Architecture gap**: missing an entire structural layer (e.g., no design system, no shared config)
 
-Pass gaps to `analyze()` via the `gaps` option. They appear in the output as `gapAnalysis`.
+Provide each gap as a `GapRecommendation`. Read `src/index.ts` for the interface. Pass gaps via the `gaps` option in `analyze()`.
+
+**Design system gaps** — Two paths depending on project maturity:
+- **No existing frontend**: Scaffold from reference repos. Read `references/design-system-sources.md` for curated sources and sparse-checkout workflow.
+- **Existing frontend without formal design system**: First extract the spec (audit → tokens → classify → document) via `references/design-system-extraction.md`, then implement the architecture via `references/design-system-sources.md`.
 
 ### Step 3: Recommend Solutions (AI Agent)
 
-For each detection, recommend a **solution** — not just a library, but an ecosystem-level answer. Consider:
+For each scanner detection, recommend a **solution**. Consider:
 
 1. **Ecosystem composition** — recommend companion libraries that work together
-   (e.g., `@lingui/core` + `@lingui/macro` + `@lingui/cli` for compile-time i18n with TMS integration)
-2. **Rationale** — explain WHY this specific choice fits this project's framework, runtime, and scale
-3. **Anti-patterns** — what NOT to use and why (e.g., "Never use jsonwebtoken — no edge runtime support; use jose")
+2. **Rationale** — explain WHY this choice fits this project's framework, runtime, and scale
+3. **Anti-patterns** — what NOT to use and why
 4. **Alternatives** — different solutions for different architectural contexts
 5. **Context7 verification** — call `resolve-library-id` + `query-docs` to confirm the library exists and get latest version/docs
 
-Return a `LibraryRecommendation` per detection:
-```typescript
-{
-  library: string;           // required — primary package
-  version: string;           // required
-  license: string;           // required
-  rationale?: string;        // recommended — WHY this choice
-  ecosystem?: Array<{...}>;  // when solution involves multiple packages
-  antiPatterns?: string[];   // when common mistakes exist
-  alternatives?: Array<{...}>;  // when architecture affects the choice
-}
-```
+Read `src/index.ts` for the `LibraryRecommendation` interface. Return `null` to skip a detection.
 
-Return `null` to skip a detection (intentional custom code, false positive, etc.).
-
-**False positive filtering** — skip if:
+**Skip a detection if**:
 - Code has comments explaining why it is custom
 - Detection is in test/mock/fixture files
 - Library is already in project dependencies (suggest version update instead)
@@ -114,15 +80,15 @@ Return `null` to skip a detection (intentional custom code, false positive, etc.
 
 ### Step 4: Score Impact
 
-Compute 7-dimension impact scores (scalability, performance, security, maintainability, feature richness, UX, UI aesthetics) with composite score, migration risk, and estimated effort.
+Call `computeImpactScore()` for each detection. Optionally provide `dimensionHints` and `baseEffortHours` for more accurate scoring. Read `src/scorer/impact-scorer.ts` for the interface.
 
 ### Step 5: Build Migration Plan
 
-Group recommendations into phases by risk (low → medium → high), ordered by domain priority (infrastructure first, presentation last). High-risk items include adapter strategies.
+Call `buildMigrationPlan()` to group recommendations into phases by risk (low, medium, high). High-risk items include adapter strategies.
 
 ### Step 6: Audit UX Completeness
 
-Evaluate frontend codebase across 8 UX categories: accessibility, error/empty/loading states, form validation, performance feel, copy consistency, design system alignment.
+Call `auditUxCompleteness()` to evaluate 8 UX categories. The auditor determines status (present/partial/missing). Fill in `recommendedLibrary` on partial/missing items based on project context.
 
 ### Step 7: Apply Constraints and Serialize
 
@@ -130,73 +96,21 @@ Filter by license allowlist, detect dependency conflicts, serialize to JSON.
 
 ### Optional Steps
 
-- **Step 8**: Vulnerability scanning via OSV database
-- **Step 9**: Auto-update existing dependencies via registry queries
-- **Step 10**: PR auto-creation via GitHub/GitLab API
+- **Step 8**: Vulnerability scan via OSV database (`vulnClient`)
+- **Step 9**: Auto-update existing dependencies (`registryClient`)
+- **Step 10**: PR auto-creation via GitHub/GitLab (`platformClient` + `gitOps`)
 
-## Programmatic API
-
-```typescript
-import { analyze, scanCodebase } from './src/index.js';
-import type { Recommender, GapRecommendation } from './src/index.js';
-
-// Step 1: Scan standalone (for AI agent inspection)
-const scanResult = await scanCodebase(validatedInput);
-
-// Step 2: Full pipeline with recommender + gap analysis
-const recommender: Recommender = (detection) => ({
-  library: 'zustand',
-  version: '^5.0.0',
-  license: 'MIT',
-  rationale: 'Minimal state library — no providers, 1KB gzipped',
-});
-
-const gaps: GapRecommendation[] = [
-  {
-    domain: 'observability',
-    description: 'No structured logging detected',
-    recommendedLibrary: {
-      name: 'pino', version: '^9.0.0', license: 'MIT',
-      rationale: 'Fastest Node.js JSON logger with redaction and child loggers',
-    },
-    priority: 'critical',
-  },
-];
-
-const result = await analyze({
-  input: inputJson,
-  context7Client: myContext7Client,
-  recommender,
-  gaps,  // AI agent identifies missing capabilities
-});
-```
-
-## Output Artifacts
+## Output
 
 Single `OutputSchema` JSON containing:
 - `recommendedChanges` — replacement recommendations with scores, verification, adapter strategies
 - `gapAnalysis` (optional) — missing capabilities with prioritized recommendations
 - `filesToDelete` — file paths to remove after migration
 - `linesSavedEstimate` — total lines saved
-- `uxAudit` — UX completeness checklist
+- `uxAudit` — UX completeness checklist (8 categories)
 - `migrationPlan` — phased plan with deletion checklist
 - `vulnerabilityReport` (optional)
 - `updatePlan` (optional)
 - `pullRequests` (optional)
 
-## Vibe Coding Domain Coverage (20+ detection patterns)
-
-| Category | Domains |
-|----------|---------|
-| UX / Design | ux-completeness, a11y-accessibility, forms-ux, state-management |
-| SEO / i18n / Content | seo, i18n, content-marketing |
-| Growth / Data | growth-hacking |
-| App Architecture | agent-architecture, data-fetching-caching, error-handling-resilience |
-| Backend / Platform | database-orm-migrations, auth-security |
-| Observability | observability, logging-tracing-metrics |
-| Testing | testing-strategy |
-| AI Engineering | ai-model-serving |
-| Business | cross-border-ecommerce |
-| File / Media | file-upload-media |
-
-> **Extensibility:** Use `customDomains?: string[]` in input for project-specific domains.
+Read `src/schemas/output.schema.ts` for the full schema.

@@ -117,7 +117,7 @@ afterEach(() => {
 
 describe('VERSION export', () => {
   it('still exports VERSION alongside the orchestrator', () => {
-    expect(VERSION).toBe('1.0.3');
+    expect(VERSION).toBe('1.0.4');
   });
 });
 
@@ -862,14 +862,52 @@ describe('analyze — gap analysis', () => {
     expect(loggingGap.recommendedLibrary.rationale).toContain('Fastest');
     expect(loggingGap.recommendedLibrary.ecosystem).toHaveLength(2);
     expect(loggingGap.priority).toBe('critical');
+    // Gap should be Context7-verified (mock client always returns verified)
+    expect(loggingGap.verificationStatus).toBe('verified');
+    expect(loggingGap.recommendedLibrary.documentationUrl).toBeDefined();
 
     const rateLimitGap = result.output.gapAnalysis![1]!;
     expect(rateLimitGap.domain).toBe('auth-security');
     expect(rateLimitGap.recommendedLibrary.name).toBe('arcjet');
     expect(rateLimitGap.recommendedLibrary.alternatives).toHaveLength(1);
     expect(rateLimitGap.priority).toBe('recommended');
+    expect(rateLimitGap.verificationStatus).toBe('verified');
 
     // Output should still be valid against OutputSchema
+    const parsed = OutputSchema.safeParse(result.output);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('gap verification handles Context7 failures gracefully', async () => {
+    writeFile('src/index.ts', 'export const x = 1;');
+
+    const gaps: GapRecommendation[] = [
+      {
+        domain: 'observability',
+        description: 'No structured logging',
+        recommendedLibrary: { name: 'pino', version: '^9.0.0', license: 'MIT' },
+        priority: 'critical',
+      },
+    ];
+
+    const failingClient: Context7Client = {
+      resolveLibraryId: async () => { throw new Error('Service unavailable'); },
+      getLibraryDocs: async () => { throw new Error('Service unavailable'); },
+    };
+
+    const result = await analyze({
+      input: makeValidInput(),
+      context7Client: failingClient,
+      recommender: makeMockRecommender(),
+      gaps,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.output.gapAnalysis).toHaveLength(1);
+    expect(result.output.gapAnalysis![0]!.verificationStatus).toBe('unavailable');
+
     const parsed = OutputSchema.safeParse(result.output);
     expect(parsed.success).toBe(true);
   });

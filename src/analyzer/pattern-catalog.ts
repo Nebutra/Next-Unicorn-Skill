@@ -27,43 +27,152 @@ export interface PatternDefinition {
 
 /**
  * Returns the full pattern catalog covering Vibe Coding domains.
- * Each covered domain has 2–3 patterns for hand-rolled code detection.
+ *
+ * Domain assignment rules:
+ * - Each pattern goes in its MOST SPECIFIC domain (e.g., A/B test → ab-testing-experimentation, not growth-hacking)
+ * - Parent domains (growth-hacking, observability, ux-completeness) are used only when no specific child domain fits
+ * - Domains with no regex-detectable patterns are left for Gap Analysis (AI Agent)
  *
  * The catalog defines WHAT to detect, not WHAT to recommend.
- * Library recommendations are generated dynamically by the AI agent.
  */
 export function getPatternCatalog(): PatternDefinition[] {
   return [
     // -----------------------------------------------------------------------
-    // i18n — Internationalization / L10n / RTL
+    // A. UX / Design
     // -----------------------------------------------------------------------
+
+    // ux-completeness — General UX patterns (parent)
     {
-      id: 'i18n-manual-pluralization',
-      domain: 'i18n',
-      description: 'Hand-rolled pluralization logic (if/else or ternary on count)',
-      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      id: 'ux-manual-loading-states',
+      domain: 'empty-loading-error-states',
+      description: 'Hand-rolled loading state management without skeleton/spinner library',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
       codePatterns: [
-        /count\s*[=!]==?\s*1\s*\?\s*['"`].*['"`]\s*:\s*['"`].*['"`]/,
-        /\.length\s*[=!]==?\s*1\s*\?\s*['"`].*['"`]\s*:\s*['"`].*['"`]/,
+        /isLoading\s*\?\s*.*(?:Loading|Spinner|\.\.\.)/i,
+        /useState\s*<\s*boolean\s*>\s*\(\s*(?:true|false)\s*\).*loading/i,
       ],
-      confidenceBase: 0.7,
+      confidenceBase: 0.55,
+    },
+
+    // a11y-accessibility
+    {
+      id: 'a11y-manual-click-handler-div',
+      domain: 'a11y-accessibility',
+      description: 'Clickable div/span without keyboard accessibility',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /<div\s[^>]*onClick\s*=\s*\{/,
+        /<span\s[^>]*onClick\s*=\s*\{/,
+      ],
+      confidenceBase: 0.6,
     },
     {
-      id: 'i18n-manual-locale-detection',
-      domain: 'i18n',
-      description: 'Manual navigator.language or Accept-Language header parsing',
-      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      id: 'a11y-manual-focus-management',
+      domain: 'a11y-accessibility',
+      description: 'Hand-rolled focus management and keyboard trap',
+      filePatterns: ['**/*.tsx', '**/*.jsx', '**/*.ts', '**/*.js'],
       codePatterns: [
-        /navigator\s*\.\s*language/,
-        /accept-language/i,
-        /toLocaleDateString\s*\(/,
+        /\.focus\s*\(\s*\)[\s\S]{0,200}(?:tabIndex|keyCode|keyDown)/i,
+        /addEventListener\s*\(\s*['"`]keydown['"`][\s\S]{0,200}(?:Tab|Escape|27|9)\b/,
+        /document\s*\.\s*activeElement/,
+      ],
+      confidenceBase: 0.55,
+    },
+
+    // forms-ux
+    {
+      id: 'forms-manual-state-tracking',
+      domain: 'forms-ux',
+      description: 'Multiple useState hooks for individual form fields',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /const\s*\[\s*\w+,\s*set\w+\s*\]\s*=\s*useState\s*\(\s*['"`]{2}\s*\)[\s\S]{0,200}onChange/,
+        /e\s*\.\s*target\s*\.\s*value[\s\S]{0,50}set\w+\s*\(\s*e\s*\.\s*target\s*\.\s*value\s*\)/,
       ],
       confidenceBase: 0.65,
     },
+    {
+      id: 'forms-manual-submit-handler',
+      domain: 'forms-ux',
+      description: 'Hand-rolled form submission with manual preventDefault and state collection',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /handleSubmit[\s\S]{0,100}preventDefault\s*\(\s*\)[\s\S]{0,200}fetch\s*\(/,
+        /onSubmit[\s\S]{0,100}e\s*\.\s*preventDefault[\s\S]{0,200}(?:setLoading|setError)/,
+      ],
+      confidenceBase: 0.6,
+    },
+
+    // validation-feedback
+    {
+      id: 'validation-manual-form-errors',
+      domain: 'validation-feedback',
+      description: 'Hand-rolled form validation with manual error state tracking',
+      filePatterns: ['**/*.tsx', '**/*.jsx', '**/*.ts', '**/*.js'],
+      codePatterns: [
+        /setError\s*\(\s*['"`]/,
+        /errors\s*\[\s*['"`]\w+['"`]\s*\]/,
+        /validate\w*\s*=\s*\(\s*\)\s*=>/,
+      ],
+      confidenceBase: 0.7,
+    },
+
+    // notifications-inapp
+    {
+      id: 'notifications-manual-alert',
+      domain: 'notifications-inapp',
+      description: 'Using window.alert/confirm/prompt instead of a toast/notification library',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      codePatterns: [
+        /window\s*\.\s*alert\s*\(/,
+        /window\s*\.\s*confirm\s*\(/,
+        /window\s*\.\s*prompt\s*\(/,
+      ],
+      confidenceBase: 0.75,
+    },
+
+    // design-system
+    {
+      id: 'design-hardcoded-colors',
+      domain: 'design-system',
+      description: 'Hardcoded hex/rgb colors in JSX/TSX instead of CSS variables or design tokens',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /(?:color|background|border|fill|stroke)\s*[:=]\s*['"`]#[0-9a-fA-F]{3,8}['"`]/,
+        /(?:color|background|border)\s*[:=]\s*['"`]rgb\(/,
+        /className\s*=.*(?:bg|text|border)-\[#[0-9a-fA-F]{3,8}\]/,
+      ],
+      confidenceBase: 0.6,
+    },
+    {
+      id: 'design-inline-styles',
+      domain: 'design-system',
+      description: 'Inline style objects in JSX instead of utility classes or design tokens',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /style\s*=\s*\{\s*\{/,
+        /style\s*=\s*\{[^}]*(?:padding|margin|fontSize|color|width|height)\s*:/,
+      ],
+      confidenceBase: 0.55,
+    },
+    {
+      id: 'design-no-cn-utility',
+      domain: 'design-system',
+      description: 'String concatenation for className instead of cn()/clsx/cva utility',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /className\s*=\s*\{[^}]*`[^`]*\$\{/,
+        /className\s*=\s*\{[^}]*\+\s*['"`]/,
+        /className\s*=\s*\{.*\?\s*['"`][^'"]*['"`]\s*:\s*['"`]/,
+      ],
+      confidenceBase: 0.6,
+    },
 
     // -----------------------------------------------------------------------
-    // SEO — Search Engine Optimization / GEO
+    // B. SEO / i18n / Content
     // -----------------------------------------------------------------------
+
+    // seo
     {
       id: 'seo-manual-meta-tags',
       domain: 'seo',
@@ -89,93 +198,32 @@ export function getPatternCatalog(): PatternDefinition[] {
       confidenceBase: 0.8,
     },
 
-    // -----------------------------------------------------------------------
-    // growth-hacking — A/B Testing, Analytics, Feature Flags
-    // -----------------------------------------------------------------------
+    // i18n
     {
-      id: 'growth-manual-ab-test',
-      domain: 'growth-hacking',
-      description: 'Hand-rolled A/B testing with Math.random() or cookie-based splits',
+      id: 'i18n-manual-pluralization',
+      domain: 'i18n',
+      description: 'Hand-rolled pluralization logic (if/else or ternary on count)',
       filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
       codePatterns: [
-        /Math\s*\.\s*random\s*\(\s*\)\s*[<>]=?\s*0?\.\s*5/,
-        /variant\s*=\s*['"`][AB]['"`]/i,
-        /experiment\s*[=:]\s*.*random/i,
+        /count\s*[=!]==?\s*1\s*\?\s*['"`].*['"`]\s*:\s*['"`].*['"`]/,
+        /\.length\s*[=!]==?\s*1\s*\?\s*['"`].*['"`]\s*:\s*['"`].*['"`]/,
       ],
       confidenceBase: 0.7,
     },
     {
-      id: 'growth-manual-feature-flags',
-      domain: 'growth-hacking',
-      description: 'Hand-rolled feature flag checks via environment variables or config objects',
+      id: 'i18n-manual-locale-detection',
+      domain: 'i18n',
+      description: 'Manual navigator.language or Accept-Language header parsing',
       filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
       codePatterns: [
-        /process\s*\.\s*env\s*\.\s*FEATURE_/,
-        /featureFlags?\s*\[/,
-        /isFeatureEnabled\s*\(/,
-      ],
-      confidenceBase: 0.6,
-    },
-
-    // -----------------------------------------------------------------------
-    // ai-model-serving — Inference, Model Registry, Prompt Management
-    // -----------------------------------------------------------------------
-    {
-      id: 'ai-manual-prompt-template',
-      domain: 'ai-model-serving',
-      description: 'Hand-rolled prompt template string interpolation',
-      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py'],
-      codePatterns: [
-        /`[^`]*\$\{.*\}[^`]*`\s*.*(?:prompt|system|user|assistant)/i,
-        /f['"].*\{.*\}.*['"].*(?:prompt|model|completion)/i,
-        /\.replace\s*\(\s*['"`]\{.*\}['"`]/,
+        /navigator\s*\.\s*language/,
+        /accept-language/i,
+        /toLocaleDateString\s*\(/,
       ],
       confidenceBase: 0.65,
     },
-    {
-      id: 'ai-manual-inference-http',
-      domain: 'ai-model-serving',
-      description: 'Hand-rolled HTTP calls to model inference endpoints',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
-      codePatterns: [
-        /fetch\s*\(\s*['"`].*(?:openai|anthropic|huggingface|inference)/i,
-        /axios\s*\.\s*post\s*\(\s*['"`].*(?:completions|chat|generate)/i,
-        /requests\s*\.\s*post\s*\(\s*['"`].*(?:v1\/|api\/)/i,
-      ],
-      confidenceBase: 0.7,
-    },
 
-    // -----------------------------------------------------------------------
-    // agent-architecture — MCP Integration, Tool Orchestration, Context
-    // -----------------------------------------------------------------------
-    {
-      id: 'agent-manual-tool-dispatch',
-      domain: 'agent-architecture',
-      description: 'Hand-rolled tool dispatch with switch/case or if/else chains',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
-      codePatterns: [
-        /switch\s*\(\s*tool(?:Name|_name|Id)\s*\)/i,
-        /if\s*\(\s*tool(?:Name|_name)\s*===?\s*['"`]/i,
-        /tool_map\s*\[/i,
-      ],
-      confidenceBase: 0.7,
-    },
-    {
-      id: 'agent-manual-context-window',
-      domain: 'agent-architecture',
-      description: 'Hand-rolled context window management (token counting, truncation)',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
-      codePatterns: [
-        /token[_s]?\s*(?:count|length|limit)/i,
-        /truncat(?:e|ion)\s*.*(?:context|message|prompt)/i,
-        /maxTokens?\s*[=:]/i,
-      ],
-      confidenceBase: 0.6,
-    },
-
-    // -----------------------------------------------------------------------
-    // content-marketing — CMS, MDX Pipelines
-    // -----------------------------------------------------------------------
+    // content-marketing
     {
       id: 'content-manual-markdown-parsing',
       domain: 'content-marketing',
@@ -202,118 +250,69 @@ export function getPatternCatalog(): PatternDefinition[] {
     },
 
     // -----------------------------------------------------------------------
-    // cross-border-ecommerce — Payments, Shipping, Tax, Catalogs
+    // C. Growth & Data
     // -----------------------------------------------------------------------
+
+    // ab-testing-experimentation (was: growth-hacking)
     {
-      id: 'ecommerce-manual-payment-integration',
-      domain: 'cross-border-ecommerce',
-      description: 'Hand-rolled payment gateway HTTP integration',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
+      id: 'ab-test-manual-random-split',
+      domain: 'ab-testing-experimentation',
+      description: 'Hand-rolled A/B testing with Math.random() or cookie-based splits',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
       codePatterns: [
-        /fetch\s*\(\s*['"`].*(?:stripe|paypal|checkout).*['"`]/i,
-        /payment[_-]?intent/i,
-        /charge\s*\.\s*create/i,
+        /Math\s*\.\s*random\s*\(\s*\)\s*[<>]=?\s*0?\.\s*5/,
+        /variant\s*=\s*['"`][AB]['"`]/i,
+        /experiment\s*[=:]\s*.*random/i,
       ],
-      confidenceBase: 0.75,
-    },
-    {
-      id: 'ecommerce-manual-tax-calculation',
-      domain: 'cross-border-ecommerce',
-      description: 'Hand-rolled tax/VAT calculation logic',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
-      codePatterns: [
-        /tax[_-]?rate\s*[=:]\s*0?\.\d+/i,
-        /vat\s*[=:*]/i,
-        /calculateTax\s*\(/i,
-      ],
-      confidenceBase: 0.65,
+      confidenceBase: 0.7,
     },
 
-    // -----------------------------------------------------------------------
-    // observability — Logging, Tracing, Metrics, Error Tracking
-    // -----------------------------------------------------------------------
+    // analytics-tracking
     {
-      id: 'observability-manual-logging',
-      domain: 'observability',
-      description: 'Hand-rolled logging with console.log/console.error in production code',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.tsx', '**/*.jsx'],
+      id: 'analytics-manual-tracking',
+      domain: 'analytics-tracking',
+      description: 'Hand-rolled analytics/tracking calls instead of a product analytics SDK',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
       codePatterns: [
-        /console\s*\.\s*(?:log|error|warn|info)\s*\(/,
-      ],
-      confidenceBase: 0.55,
-    },
-    {
-      id: 'observability-manual-error-tracking',
-      domain: 'observability',
-      description: 'Hand-rolled error tracking with try/catch and HTTP reporting',
-      filePatterns: ['**/*.ts', '**/*.js', '**/*.tsx', '**/*.jsx'],
-      codePatterns: [
-        /catch\s*\(\s*\w+\s*\)\s*\{[^}]*fetch\s*\(/,
-        /window\s*\.\s*onerror/,
-        /process\s*\.\s*on\s*\(\s*['"`]uncaughtException['"`]/,
+        /window\s*\.\s*dataLayer\s*\.\s*push\s*\(/,
+        /gtag\s*\(\s*['"`]event['"`]/,
+        /fbq\s*\(\s*['"`]track['"`]/,
+        /navigator\s*\.\s*sendBeacon\s*\(/,
       ],
       confidenceBase: 0.7,
     },
 
     // -----------------------------------------------------------------------
-    // auth-security — Authentication, Authorization, Rate Limiting
+    // D. App / Frontend Architecture
     // -----------------------------------------------------------------------
+
+    // agent-architecture
     {
-      id: 'auth-manual-jwt-handling',
-      domain: 'auth-security',
-      description: 'Hand-rolled JWT token creation/verification',
+      id: 'agent-manual-tool-dispatch',
+      domain: 'agent-architecture',
+      description: 'Hand-rolled tool dispatch with switch/case or if/else chains',
       filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
       codePatterns: [
-        /atob\s*\(\s*.*split\s*\(\s*['"`]\.['"`]\s*\)/,
-        /Buffer\s*\.\s*from\s*\(.*['"`]base64['"`]\s*\)/,
-        /jwt\s*\.\s*sign\s*\(/i,
-        /createHmac\s*\(/,
-      ],
-      confidenceBase: 0.75,
-    },
-    {
-      id: 'auth-manual-rate-limiting',
-      domain: 'auth-security',
-      description: 'Hand-rolled rate limiting with in-memory counters or timestamps',
-      filePatterns: ['**/*.ts', '**/*.js'],
-      codePatterns: [
-        /requestCount\s*[+]=\s*1/i,
-        /rateLimi(?:t|ter)/i,
-        /new\s+Map\s*\(\s*\).*(?:timestamp|count|window)/i,
-      ],
-      confidenceBase: 0.65,
-    },
-
-    // -----------------------------------------------------------------------
-    // ux-completeness — Forms, Loading States
-    // -----------------------------------------------------------------------
-    {
-      id: 'ux-manual-form-validation',
-      domain: 'ux-completeness',
-      description: 'Hand-rolled form validation with manual state tracking',
-      filePatterns: ['**/*.tsx', '**/*.jsx', '**/*.ts', '**/*.js'],
-      codePatterns: [
-        /setError\s*\(\s*['"`]/,
-        /errors\s*\[\s*['"`]\w+['"`]\s*\]/,
-        /validate\w*\s*=\s*\(\s*\)\s*=>/,
+        /switch\s*\(\s*tool(?:Name|_name|Id)\s*\)/i,
+        /if\s*\(\s*tool(?:Name|_name)\s*===?\s*['"`]/i,
+        /tool_map\s*\[/i,
       ],
       confidenceBase: 0.7,
     },
     {
-      id: 'ux-manual-loading-states',
-      domain: 'ux-completeness',
-      description: 'Hand-rolled loading state management without skeleton/spinner library',
-      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      id: 'agent-manual-context-window',
+      domain: 'agent-architecture',
+      description: 'Hand-rolled context window management (token counting, truncation)',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
       codePatterns: [
-        /isLoading\s*\?\s*.*(?:Loading|Spinner|\.\.\.)/i,
-        /useState\s*<\s*boolean\s*>\s*\(\s*(?:true|false)\s*\).*loading/i,
+        /token[_s]?\s*(?:count|length|limit)/i,
+        /truncat(?:e|ion)\s*.*(?:context|message|prompt)/i,
+        /maxTokens?\s*[=:]/i,
       ],
-      confidenceBase: 0.55,
+      confidenceBase: 0.6,
     },
 
-    // -----------------------------------------------------------------------
-    // state-management — Manual state chains, Redux boilerplate
-    // -----------------------------------------------------------------------
+    // state-management
     {
       id: 'state-manual-usestate-chain',
       domain: 'state-management',
@@ -350,9 +349,7 @@ export function getPatternCatalog(): PatternDefinition[] {
       confidenceBase: 0.75,
     },
 
-    // -----------------------------------------------------------------------
-    // data-fetching-caching — Manual fetch + useEffect patterns
-    // -----------------------------------------------------------------------
+    // data-fetching-caching
     {
       id: 'data-fetch-useeffect',
       domain: 'data-fetching-caching',
@@ -390,35 +387,7 @@ export function getPatternCatalog(): PatternDefinition[] {
       confidenceBase: 0.7,
     },
 
-    // -----------------------------------------------------------------------
-    // forms-ux — Manual form state and validation
-    // -----------------------------------------------------------------------
-    {
-      id: 'forms-manual-state-tracking',
-      domain: 'forms-ux',
-      description: 'Multiple useState hooks for individual form fields',
-      filePatterns: ['**/*.tsx', '**/*.jsx'],
-      codePatterns: [
-        /const\s*\[\s*\w+,\s*set\w+\s*\]\s*=\s*useState\s*\(\s*['"`]{2}\s*\)[\s\S]{0,200}onChange/,
-        /e\s*\.\s*target\s*\.\s*value[\s\S]{0,50}set\w+\s*\(\s*e\s*\.\s*target\s*\.\s*value\s*\)/,
-      ],
-      confidenceBase: 0.65,
-    },
-    {
-      id: 'forms-manual-submit-handler',
-      domain: 'forms-ux',
-      description: 'Hand-rolled form submission with manual preventDefault and state collection',
-      filePatterns: ['**/*.tsx', '**/*.jsx'],
-      codePatterns: [
-        /handleSubmit[\s\S]{0,100}preventDefault\s*\(\s*\)[\s\S]{0,200}fetch\s*\(/,
-        /onSubmit[\s\S]{0,100}e\s*\.\s*preventDefault[\s\S]{0,200}(?:setLoading|setError)/,
-      ],
-      confidenceBase: 0.6,
-    },
-
-    // -----------------------------------------------------------------------
-    // error-handling-resilience — Error boundaries, Result types
-    // -----------------------------------------------------------------------
+    // error-handling-resilience
     {
       id: 'error-manual-error-boundary',
       domain: 'error-handling-resilience',
@@ -444,36 +413,21 @@ export function getPatternCatalog(): PatternDefinition[] {
       confidenceBase: 0.65,
     },
 
-    // -----------------------------------------------------------------------
-    // a11y-accessibility — Missing ARIA, keyboard navigation
-    // -----------------------------------------------------------------------
+    // realtime-collaboration
     {
-      id: 'a11y-manual-click-handler-div',
-      domain: 'a11y-accessibility',
-      description: 'Clickable div/span without keyboard accessibility',
-      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      id: 'realtime-manual-websocket',
+      domain: 'realtime-collaboration',
+      description: 'Hand-rolled WebSocket connection management',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
       codePatterns: [
-        /<div\s[^>]*onClick\s*=\s*\{/,
-        /<span\s[^>]*onClick\s*=\s*\{/,
+        /new\s+WebSocket\s*\(/,
+        /\.onmessage\s*=\s*/,
+        /\.send\s*\(\s*JSON\s*\.\s*stringify/,
       ],
-      confidenceBase: 0.6,
-    },
-    {
-      id: 'a11y-manual-focus-management',
-      domain: 'a11y-accessibility',
-      description: 'Hand-rolled focus management and keyboard trap',
-      filePatterns: ['**/*.tsx', '**/*.jsx', '**/*.ts', '**/*.js'],
-      codePatterns: [
-        /\.focus\s*\(\s*\)[\s\S]{0,200}(?:tabIndex|keyCode|keyDown)/i,
-        /addEventListener\s*\(\s*['"`]keydown['"`][\s\S]{0,200}(?:Tab|Escape|27|9)\b/,
-        /document\s*\.\s*activeElement/,
-      ],
-      confidenceBase: 0.55,
+      confidenceBase: 0.65,
     },
 
-    // -----------------------------------------------------------------------
-    // file-upload-media — Manual FileReader, drag-and-drop
-    // -----------------------------------------------------------------------
+    // file-upload-media
     {
       id: 'upload-manual-filereader',
       domain: 'file-upload-media',
@@ -500,8 +454,10 @@ export function getPatternCatalog(): PatternDefinition[] {
     },
 
     // -----------------------------------------------------------------------
-    // database-orm-migrations — Raw SQL, manual migrations
+    // E. Backend / Platform
     // -----------------------------------------------------------------------
+
+    // database-orm-migrations
     {
       id: 'db-manual-raw-sql',
       domain: 'database-orm-migrations',
@@ -528,9 +484,98 @@ export function getPatternCatalog(): PatternDefinition[] {
       confidenceBase: 0.65,
     },
 
+    // caching-rate-limit
+    {
+      id: 'ratelimit-manual-counter',
+      domain: 'caching-rate-limit',
+      description: 'Hand-rolled rate limiting with in-memory counters or timestamps',
+      filePatterns: ['**/*.ts', '**/*.js'],
+      codePatterns: [
+        /requestCount\s*[+]=\s*1/i,
+        /rateLimi(?:t|ter)/i,
+        /new\s+Map\s*\(\s*\).*(?:timestamp|count|window)/i,
+      ],
+      confidenceBase: 0.65,
+    },
+
+    // feature-flags-config (was: growth-hacking)
+    {
+      id: 'feature-flags-manual-env',
+      domain: 'feature-flags-config',
+      description: 'Hand-rolled feature flag checks via environment variables or config objects',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      codePatterns: [
+        /process\s*\.\s*env\s*\.\s*FEATURE_/,
+        /featureFlags?\s*\[/,
+        /isFeatureEnabled\s*\(/,
+      ],
+      confidenceBase: 0.6,
+    },
+
     // -----------------------------------------------------------------------
-    // logging-tracing-metrics — Structured logging, OpenTelemetry
+    // F. Security / Compliance
     // -----------------------------------------------------------------------
+
+    // auth-security
+    {
+      id: 'auth-manual-jwt-handling',
+      domain: 'auth-security',
+      description: 'Hand-rolled JWT token creation/verification',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
+      codePatterns: [
+        /atob\s*\(\s*.*split\s*\(\s*['"`]\.['"`]\s*\)/,
+        /Buffer\s*\.\s*from\s*\(.*['"`]base64['"`]\s*\)/,
+        /jwt\s*\.\s*sign\s*\(/i,
+        /createHmac\s*\(/,
+      ],
+      confidenceBase: 0.75,
+    },
+
+    // security-hardening
+    {
+      id: 'security-manual-headers',
+      domain: 'security-hardening',
+      description: 'Hand-rolled security headers instead of helmet/middleware',
+      filePatterns: ['**/*.ts', '**/*.js'],
+      codePatterns: [
+        /setHeader\s*\(\s*['"`]X-Frame-Options['"`]/i,
+        /setHeader\s*\(\s*['"`]X-Content-Type-Options['"`]/i,
+        /setHeader\s*\(\s*['"`]Content-Security-Policy['"`]/i,
+      ],
+      confidenceBase: 0.7,
+    },
+
+    // -----------------------------------------------------------------------
+    // G. Observability / Ops
+    // -----------------------------------------------------------------------
+
+    // observability (parent — generic console.log)
+    {
+      id: 'observability-manual-logging',
+      domain: 'observability',
+      description: 'Hand-rolled logging with console.log/console.error in production code',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /console\s*\.\s*(?:log|error|warn|info)\s*\(/,
+      ],
+      confidenceBase: 0.55,
+    },
+
+    // error-monitoring (was: observability)
+    {
+      id: 'error-monitoring-manual-tracking',
+      domain: 'error-monitoring',
+      description: 'Hand-rolled error tracking with try/catch and HTTP reporting',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /catch\s*\(\s*\w+\s*\)\s*\{[^}]*fetch\s*\(/,
+        /window\s*\.\s*onerror/,
+        /process\s*\.\s*on\s*\(\s*['"`]uncaughtException['"`]/,
+      ],
+      confidenceBase: 0.7,
+    },
+
+    // logging-tracing-metrics
     {
       id: 'metrics-manual-timing',
       domain: 'logging-tracing-metrics',
@@ -556,8 +601,10 @@ export function getPatternCatalog(): PatternDefinition[] {
     },
 
     // -----------------------------------------------------------------------
-    // testing-strategy — Manual test utilities
+    // H. Delivery / Quality / DevEx
     // -----------------------------------------------------------------------
+
+    // testing-strategy
     {
       id: 'test-manual-assertions',
       domain: 'testing-strategy',
@@ -581,6 +628,85 @@ export function getPatternCatalog(): PatternDefinition[] {
         /sinon\s*\.\s*stub\s*\(/,
       ],
       confidenceBase: 0.5,
+    },
+
+    // -----------------------------------------------------------------------
+    // I. Performance
+    // -----------------------------------------------------------------------
+
+    // performance-web-vitals
+    {
+      id: 'perf-unoptimized-images',
+      domain: 'performance-web-vitals',
+      description: 'Using raw <img> tags instead of optimized image components',
+      filePatterns: ['**/*.tsx', '**/*.jsx'],
+      codePatterns: [
+        /<img\s[^>]*src\s*=\s*\{/,
+        /<img\s[^>]*src\s*=\s*['"`](?:https?:|\/)/,
+      ],
+      confidenceBase: 0.5,
+    },
+
+    // -----------------------------------------------------------------------
+    // J. AI Engineering
+    // -----------------------------------------------------------------------
+
+    // ai-model-serving
+    {
+      id: 'ai-manual-prompt-template',
+      domain: 'ai-model-serving',
+      description: 'Hand-rolled prompt template string interpolation',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py'],
+      codePatterns: [
+        /`[^`]*\$\{.*\}[^`]*`\s*.*(?:prompt|system|user|assistant)/i,
+        /f['"].*\{.*\}.*['"].*(?:prompt|model|completion)/i,
+        /\.replace\s*\(\s*['"`]\{.*\}['"`]/,
+      ],
+      confidenceBase: 0.65,
+    },
+    {
+      id: 'ai-manual-inference-http',
+      domain: 'ai-model-serving',
+      description: 'Hand-rolled HTTP calls to model inference endpoints',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
+      codePatterns: [
+        /fetch\s*\(\s*['"`].*(?:openai|anthropic|huggingface|inference)/i,
+        /axios\s*\.\s*post\s*\(\s*['"`].*(?:completions|chat|generate)/i,
+        /requests\s*\.\s*post\s*\(\s*['"`].*(?:v1\/|api\/)/i,
+      ],
+      confidenceBase: 0.7,
+    },
+
+    // -----------------------------------------------------------------------
+    // K. Business domains
+    // -----------------------------------------------------------------------
+
+    // payments-billing (was: cross-border-ecommerce)
+    {
+      id: 'payments-manual-integration',
+      domain: 'payments-billing',
+      description: 'Hand-rolled payment gateway HTTP integration',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
+      codePatterns: [
+        /fetch\s*\(\s*['"`].*(?:stripe|paypal|checkout).*['"`]/i,
+        /payment[_-]?intent/i,
+        /charge\s*\.\s*create/i,
+      ],
+      confidenceBase: 0.75,
+    },
+
+    // cross-border-ecommerce
+    {
+      id: 'ecommerce-manual-tax-calculation',
+      domain: 'cross-border-ecommerce',
+      description: 'Hand-rolled tax/VAT calculation logic',
+      filePatterns: ['**/*.ts', '**/*.js', '**/*.py'],
+      codePatterns: [
+        /tax[_-]?rate\s*[=:]\s*0?\.\d+/i,
+        /vat\s*[=:*]/i,
+        /calculateTax\s*\(/i,
+      ],
+      confidenceBase: 0.65,
     },
   ];
 }

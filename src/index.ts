@@ -20,6 +20,7 @@ import {
 } from './schemas/output.schema.js';
 import { scanCodebase, type Detection, type ScanResult } from './analyzer/scanner.js';
 import {
+  verifyRecommendation,
   verifyAllRecommendations,
   type Context7Client,
 } from './verifier/context7.js';
@@ -55,7 +56,7 @@ import type { GitOperations } from './pr-creator/git-operations.js';
 // Version
 // ---------------------------------------------------------------------------
 
-export const VERSION = '1.0.3';
+export const VERSION = '1.0.4';
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -140,6 +141,9 @@ export interface GapRecommendation {
   };
   /** How important is filling this gap */
   priority: 'critical' | 'recommended' | 'nice-to-have';
+  /** Context7 verification status — filled by the pipeline, not the AI agent */
+  verificationStatus?: 'verified' | 'unverified' | 'unavailable';
+  verificationNote?: string;
 }
 
 export interface AnalyzeOptions {
@@ -196,6 +200,8 @@ export type { ExclusionRecord } from './utils/constraint-filter.js';
 export type { InputSchema } from './schemas/input.schema.js';
 export type { OutputSchema } from './schemas/output.schema.js';
 export type { Detection, ScanResult } from './analyzer/scanner.js';
+export type { StructuralFinding, StructuralAnalysis } from './analyzer/structure-analyzer.js';
+export { analyzeStructure } from './analyzer/structure-analyzer.js';
 export type { VulnerabilityClient } from './security/osv-client.js';
 export type { RegistryClient } from './updater/registry-client.js';
 export type { PlatformClient } from './pr-creator/platform-client.js';
@@ -498,8 +504,8 @@ export async function analyze(options: AnalyzeOptions): Promise<AnalyzeResult> {
       deletionChecklist: migrationPlan.deletionChecklist,
       peerDependencyWarnings: peerWarnings,
     },
-    // Gap analysis — capabilities the project should have but doesn't
-    gapAnalysis: options.gaps && options.gaps.length > 0 ? options.gaps : undefined,
+    // Gap analysis — verify each gap recommendation with Context7
+    gapAnalysis: await verifyGaps(options.gaps, context7Client),
     // Phase 2 optional sections
     vulnerabilityReport,
     updatePlan,
@@ -582,4 +588,37 @@ function detectDefaultEcosystem(packageManagers: string[]): string {
   }
 
   return 'npm';
+}
+
+/**
+ * Verify gap recommendations with Context7 — same quality guarantee as
+ * replacement recommendations. Returns undefined if no gaps provided.
+ */
+async function verifyGaps(
+  gaps: GapRecommendation[] | undefined,
+  client: Context7Client,
+): Promise<GapRecommendation[] | undefined> {
+  if (!gaps || gaps.length === 0) return undefined;
+
+  const verified: GapRecommendation[] = [];
+
+  for (const gap of gaps) {
+    const result = await verifyRecommendation(
+      client,
+      gap.recommendedLibrary.name,
+      gap.description,
+    );
+
+    verified.push({
+      ...gap,
+      recommendedLibrary: {
+        ...gap.recommendedLibrary,
+        documentationUrl: gap.recommendedLibrary.documentationUrl ?? result.documentationUrl,
+      },
+      verificationStatus: result.status,
+      verificationNote: result.note,
+    });
+  }
+
+  return verified;
 }

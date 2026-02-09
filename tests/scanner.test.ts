@@ -57,13 +57,34 @@ describe('Pattern catalog', () => {
     const requiredDomains = [
       'i18n',
       'seo',
-      'growth-hacking',
+      'ab-testing-experimentation',
+      'analytics-tracking',
       'ai-model-serving',
       'agent-architecture',
       'content-marketing',
       'cross-border-ecommerce',
+      'payments-billing',
       'observability',
+      'error-monitoring',
+      'logging-tracing-metrics',
       'auth-security',
+      'security-hardening',
+      'caching-rate-limit',
+      'feature-flags-config',
+      'design-system',
+      'state-management',
+      'data-fetching-caching',
+      'forms-ux',
+      'validation-feedback',
+      'notifications-inapp',
+      'empty-loading-error-states',
+      'a11y-accessibility',
+      'error-handling-resilience',
+      'realtime-collaboration',
+      'file-upload-media',
+      'database-orm-migrations',
+      'testing-strategy',
+      'performance-web-vitals',
     ] as const;
 
     const catalog = getPatternCatalog();
@@ -149,16 +170,16 @@ describe('Scanner — code pattern matching', () => {
     expect(seoDetections[0]!.patternCategory).toBe('seo-manual-meta-tags');
   });
 
-  it('detects hand-rolled A/B testing (growth-hacking domain)', async () => {
+  it('detects hand-rolled A/B testing (ab-testing-experimentation domain)', async () => {
     writeFile('src/experiment.ts', `
       const variant = Math.random() < 0.5 ? 'control' : 'treatment';
     `);
 
     const result = await scanCodebase(makeInput());
 
-    const growthDetections = result.detections.filter((d) => d.domain === 'growth-hacking');
-    expect(growthDetections.length).toBeGreaterThanOrEqual(1);
-    expect(growthDetections[0]!.patternCategory).toBe('growth-manual-ab-test');
+    const abDetections = result.detections.filter((d) => d.domain === 'ab-testing-experimentation');
+    expect(abDetections.length).toBeGreaterThanOrEqual(1);
+    expect(abDetections[0]!.patternCategory).toBe('ab-test-manual-random-split');
   });
 
   it('detects hand-rolled JWT handling (auth-security domain)', async () => {
@@ -177,7 +198,6 @@ describe('Scanner — code pattern matching', () => {
     writeFile('src/service.ts', `
       function processOrder(order: Order) {
         console.log('Processing order', order.id);
-        console.error('Something went wrong');
       }
     `);
 
@@ -186,6 +206,48 @@ describe('Scanner — code pattern matching', () => {
     const obsDetections = result.detections.filter((d) => d.domain === 'observability');
     expect(obsDetections.length).toBeGreaterThanOrEqual(1);
     expect(obsDetections[0]!.patternCategory).toBe('observability-manual-logging');
+  });
+
+  it('detects hardcoded colors in JSX (design-system domain)', async () => {
+    writeFile('src/Card.tsx', `
+      export function Card() {
+        return <div className="bg-[#1a1a2e] text-[#e0e0e0]">card</div>;
+      }
+    `);
+
+    const result = await scanCodebase(makeInput());
+
+    const dsDetections = result.detections.filter((d) => d.domain === 'design-system');
+    expect(dsDetections.length).toBeGreaterThanOrEqual(1);
+    expect(dsDetections[0]!.patternCategory).toBe('design-hardcoded-colors');
+  });
+
+  it('detects inline styles in JSX (design-system domain)', async () => {
+    writeFile('src/Box.tsx', `
+      export function Box() {
+        return <div style={{ padding: '16px', color: 'red' }}>box</div>;
+      }
+    `);
+
+    const result = await scanCodebase(makeInput());
+
+    const dsDetections = result.detections.filter((d) => d.domain === 'design-system');
+    expect(dsDetections.length).toBeGreaterThanOrEqual(1);
+    expect(dsDetections.some(d => d.patternCategory === 'design-inline-styles')).toBe(true);
+  });
+
+  it('detects className string concatenation (design-system domain)', async () => {
+    writeFile('src/Button.tsx', `
+      export function Button({ active }: { active: boolean }) {
+        return <button className={active ? 'bg-blue-500' : 'bg-gray-500'}>click</button>;
+      }
+    `);
+
+    const result = await scanCodebase(makeInput());
+
+    const dsDetections = result.detections.filter((d) => d.domain === 'design-system');
+    expect(dsDetections.length).toBeGreaterThanOrEqual(1);
+    expect(dsDetections.some(d => d.patternCategory === 'design-no-cn-utility')).toBe(true);
   });
 
   it('produces detections with valid structure (no suggestedLibrary)', async () => {
@@ -377,5 +439,94 @@ describe('Scanner — directory filtering', () => {
       d.filePath.includes('.git'),
     );
     expect(gitDetections).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Structural analysis — design system architecture detection
+// ---------------------------------------------------------------------------
+
+describe('Scanner — structural analysis', () => {
+  it('detects missing token layer in monorepo with UI package', async () => {
+    // Root
+    writeFile('package.json', JSON.stringify({ name: 'monorepo', dependencies: {} }));
+    // UI package but no tokens package
+    writeFile('packages/ui/package.json', JSON.stringify({
+      name: '@app/ui',
+      dependencies: { react: '^18.0.0' },
+    }));
+    writeFile('packages/ui/src/index.ts', 'export const Button = () => {};');
+
+    const result = await scanCodebase(makeInput());
+
+    expect(result.structuralFindings).toBeDefined();
+    expect(result.structuralFindings!.length).toBeGreaterThan(0);
+    const missingToken = result.structuralFindings!.find((f) => f.type === 'missing-layer');
+    expect(missingToken).toBeDefined();
+    expect(missingToken!.domain).toBe('design-system');
+    expect(missingToken!.severity).toBe('critical');
+  });
+
+  it('detects complete design system layers', async () => {
+    writeFile('package.json', JSON.stringify({ name: 'monorepo', dependencies: {} }));
+    writeFile('packages/design-tokens/package.json', JSON.stringify({
+      name: '@app/design-tokens', dependencies: {},
+    }));
+    writeFile('packages/design-tokens/src/index.ts', 'export const colors = {};');
+    writeFile('packages/tailwind-config/package.json', JSON.stringify({
+      name: '@app/tailwind-config', dependencies: { '@app/design-tokens': 'workspace:*' },
+    }));
+    writeFile('packages/tailwind-config/src/preset.ts', 'export default {};');
+    writeFile('packages/ui/package.json', JSON.stringify({
+      name: '@app/ui', dependencies: { '@app/tailwind-config': 'workspace:*' },
+    }));
+    writeFile('packages/ui/src/index.ts', 'export const Button = () => {};');
+
+    const result = await scanCodebase(makeInput());
+
+    expect(result.designSystemLayers).toBeDefined();
+    expect(result.designSystemLayers!.hasTokens).toBe(true);
+    expect(result.designSystemLayers!.hasConfig).toBe(true);
+    expect(result.designSystemLayers!.hasUI).toBe(true);
+    // No missing-layer findings
+    const missingLayer = result.structuralFindings?.filter((f) => f.type === 'missing-layer') ?? [];
+    expect(missingLayer.length).toBe(0);
+  });
+
+  it('detects hardcoded colors in tailwind config', async () => {
+    writeFile('package.json', JSON.stringify({ name: 'monorepo', dependencies: {} }));
+    writeFile('packages/ui/package.json', JSON.stringify({
+      name: '@app/ui', dependencies: {},
+    }));
+    writeFile('packages/ui/src/index.ts', 'export const x = 1;');
+    writeFile('packages/ui/tailwind.config.ts', `
+      export default {
+        theme: {
+          colors: {
+            primary: '#1a1a2e',
+            secondary: '#16213e',
+          },
+        },
+      };
+    `);
+
+    const result = await scanCodebase(makeInput());
+
+    const hardcoded = result.structuralFindings?.find((f) => f.type === 'hardcoded-config-values');
+    expect(hardcoded).toBeDefined();
+    expect(hardcoded!.domain).toBe('design-system');
+  });
+
+  it('skips structural analysis for non-monorepo projects', async () => {
+    writeFile('package.json', JSON.stringify({
+      name: 'single-app', dependencies: { react: '^18.0.0' },
+    }));
+    writeFile('src/index.ts', 'export const x = 1;');
+
+    const result = await scanCodebase(makeInput());
+
+    // Single workspace — no structural analysis
+    expect(result.structuralFindings).toBeUndefined();
+    expect(result.designSystemLayers).toBeUndefined();
   });
 });

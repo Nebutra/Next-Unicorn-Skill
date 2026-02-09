@@ -26,6 +26,10 @@ export interface WorkspaceScan {
 export interface ScanResult {
   detections: Detection[];
   workspaces: WorkspaceScan[];
+  /** Structural analysis of monorepo architecture (design system layers, dependency flow) */
+  structuralFindings?: import('./structure-analyzer.js').StructuralFinding[];
+  /** Detected design system layer info */
+  designSystemLayers?: import('./structure-analyzer.js').StructuralAnalysis['designSystemLayers'];
 }
 
 // ---------------------------------------------------------------------------
@@ -371,5 +375,19 @@ export async function scanCodebase(input: InputSchema): Promise<ScanResult> {
     }
   }
 
-  return { detections, workspaces };
+  // ── Structural analysis (design system layers, dependency flow) ──
+  let structuralFindings: import('./structure-analyzer.js').StructuralFinding[] | undefined;
+  let designSystemLayers: import('./structure-analyzer.js').StructuralAnalysis['designSystemLayers'] | undefined;
+
+  if (workspaces.length > 1) {
+    // Only run structural analysis for monorepos
+    const { analyzeStructure } = await import('./structure-analyzer.js');
+    const structural = analyzeStructure(repoPath, workspaces);
+    if (structural.findings.length > 0) {
+      structuralFindings = structural.findings;
+    }
+    designSystemLayers = structural.designSystemLayers;
+  }
+
+  return { detections, workspaces, structuralFindings, designSystemLayers };
 }

@@ -87,8 +87,8 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   },
   {
     category: 'error-states',
-    detectionPatternIds: ['observability-manual-error-tracking'],
-    detectionDomains: ['observability'],
+    detectionPatternIds: ['observability-manual-error-tracking', 'error-monitoring-manual-tracking'],
+    detectionDomains: ['observability', 'error-monitoring'],
     patternKeywords: [/error.?boundar/i, /error.?state/i, /error.?handling/i, /catch/i, /fallback/i],
     libraryIndicators: [
       'react-error-boundary',
@@ -108,7 +108,7 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   {
     category: 'loading-states',
     detectionPatternIds: ['ux-manual-loading-states'],
-    detectionDomains: ['ux-completeness'],
+    detectionDomains: ['ux-completeness', 'empty-loading-error-states'],
     patternKeywords: [/loading/i, /spinner/i, /skeleton/i, /suspense/i, /pending/i],
     libraryIndicators: [
       'react-loading-skeleton',
@@ -120,8 +120,8 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   },
   {
     category: 'form-validation',
-    detectionPatternIds: ['ux-manual-form-validation'],
-    detectionDomains: ['ux-completeness'],
+    detectionPatternIds: ['ux-manual-form-validation', 'validation-manual-form-errors'],
+    detectionDomains: ['ux-completeness', 'validation-feedback'],
     patternKeywords: [/form.?valid/i, /validation/i, /form.?error/i, /setError/i, /useForm/i],
     libraryIndicators: [
       'react-hook-form',
@@ -158,7 +158,7 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   {
     category: 'copy-consistency',
     detectionPatternIds: ['i18n-manual-pluralization', 'i18n-manual-locale-detection'],
-    detectionDomains: ['i18n'],
+    detectionDomains: ['i18n', 'localization-ux'],
     patternKeywords: [/i18n/i, /l10n/i, /locale/i, /translat/i, /intl/i, /plurali[sz]/i],
     libraryIndicators: [
       'i18next',
@@ -171,8 +171,8 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   },
   {
     category: 'design-system-alignment',
-    detectionPatternIds: [],
-    detectionDomains: ['ux-completeness'],
+    detectionPatternIds: ['design-hardcoded-colors', 'design-inline-styles', 'design-no-cn-utility'],
+    detectionDomains: ['design-system', 'ux-completeness'],
     patternKeywords: [
       /design.?system/i,
       /component.?library/i,

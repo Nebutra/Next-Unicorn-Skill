@@ -282,6 +282,9 @@ export const GapRecommendationSchema = z.object({
     })).optional(),
   }),
   priority: GapPriority,
+  /** Context7 verification status — filled by the pipeline, not the AI agent */
+  verificationStatus: VerificationStatus.optional(),
+  verificationNote: z.string().optional(),
 });
 
 export type GapRecommendation = z.infer<typeof GapRecommendationSchema>;
