@@ -56,7 +56,7 @@ import type { GitOperations } from './pr-creator/git-operations.js';
 // Version
 // ---------------------------------------------------------------------------
 
-export const VERSION = '1.0.4';
+export const VERSION = '1.0.5';
 
 // ---------------------------------------------------------------------------
 // Public interfaces

@@ -11,7 +11,7 @@
   <a href="https://www.npmjs.com/package/@nebutra/next-unicorn-skill"><img src="https://img.shields.io/npm/v/@nebutra/next-unicorn-skill.svg?color=blue" alt="npm version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue.svg" alt="TypeScript" /></a>
-  <a href="./tests/"><img src="https://img.shields.io/badge/tests-198%20passed-brightgreen.svg" alt="Tests" /></a>
+  <a href="./tests/"><img src="https://img.shields.io/badge/tests-210%20passed-brightgreen.svg" alt="Tests" /></a>
   <a href="./tests/"><img src="https://img.shields.io/badge/properties-29%20verified-purple.svg" alt="Property Tests" /></a>
 </p>
 
@@ -31,9 +31,9 @@
 
 Every codebase accumulates hand-rolled implementations that should be mature libraries. Custom date formatters, DIY loggers, bespoke state machines, ad-hoc i18n — **Vibe Coding debt**.
 
-Snyk, Dependabot, and Renovate manage your *existing* dependencies. They can't find code you wrote that *should become* a dependency.
+Snyk, Dependabot, and Renovate manage your *existing* dependencies. They can't find code you wrote that *should become* a dependency — or capabilities your project is *missing entirely*.
 
-**Next-Unicorn does both** — and verifies every recommendation against real documentation via [Context7 MCP](https://context7.com).
+**Next-Unicorn does all three** — replacement, gap analysis, and dependency management — verified against real documentation via [Context7 MCP](https://context7.com).
 
 ## Quick Start
 
@@ -61,18 +61,36 @@ npm install @nebutra/next-unicorn-skill
 
 ```typescript
 import { analyze, scanCodebase } from '@nebutra/next-unicorn-skill';
-import type { Recommender } from '@nebutra/next-unicorn-skill';
+import type { Recommender, GapRecommendation } from '@nebutra/next-unicorn-skill';
 
-// The recommender function: AI agent decides which library fits each detection
-const recommender: Recommender = (detection) => {
-  // AI agent uses its knowledge + project context to recommend
-  // Return null to skip a detection (false positive, intentional custom code)
-  return {
-    library: 'zustand',       // dynamically chosen, not hardcoded
-    version: '^5.0.0',        // verified via Context7
-    license: 'MIT',
-  };
-};
+// The recommender: AI agent decides which library fits each detection
+const recommender: Recommender = (detection) => ({
+  library: '@lingui/core',
+  version: '^4.0.0',
+  license: 'MIT',
+  rationale: 'Compile-time i18n with near-zero runtime overhead',
+  ecosystem: [
+    { library: '@lingui/macro', version: '^4.0.0', role: 'Tagged templates' },
+    { library: '@lingui/cli', version: '^4.0.0', role: 'CI message extraction' },
+  ],
+  antiPatterns: ['Avoid i18next if bundle size matters — Lingui compiles away'],
+  alternatives: [
+    { library: 'next-intl', when: 'Next.js App Router with server components' },
+  ],
+});
+
+// Gap analysis: capabilities the project should have but doesn't
+const gaps: GapRecommendation[] = [
+  {
+    domain: 'observability',
+    description: 'No structured logging detected',
+    recommendedLibrary: {
+      name: 'pino', version: '^9.0.0', license: 'MIT',
+      rationale: 'Fastest Node.js JSON logger with redaction and child loggers',
+    },
+    priority: 'critical',
+  },
+];
 
 const result = await analyze({
   input: {
@@ -83,27 +101,22 @@ const result = await analyze({
       currentLibraries: { react: '18.2.0', next: '14.1.0' },
     },
     optimizationGoals: ['reduce custom code', 'improve maintainability'],
-    constraints: {
-      licenseAllowlist: ['MIT', 'Apache-2.0', 'ISC'],
-    },
+    constraints: { licenseAllowlist: ['MIT', 'Apache-2.0', 'ISC'] },
     priorityFocusAreas: ['i18n', 'observability', 'auth-security'],
   },
   context7Client: myContext7Client,
-  recommender,  // AI agent provides library recommendations
-  // Optional Phase 2 clients:
-  vulnClient: myOsvClient,          // vulnerability scanning
-  registryClient: myRegistryClient,  // auto-update
-  platformClient: myGitHubClient,    // PR creation
-  gitOps: myGitOperations,           // PR creation
+  recommender,
+  gaps,
 });
 
 if (result.success) {
   console.log(result.prettyJson);
-  // result.scanResult contains raw detections for further AI analysis
+  // result.scanResult — raw detections + structural findings for AI analysis
+  // result.output.gapAnalysis — Context7-verified gap recommendations
 }
 ```
 
-Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent (Claude Code, Kiro, etc.).
+Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent (Claude Code, Kiro, Cursor, etc.).
 
 ## Features
 
@@ -111,17 +124,19 @@ Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent
 
 | Feature | Description |
 |---------|-------------|
-| **Pattern-based scanning** | Detects hand-rolled code across 68 Vibe Coding Domains (ISO 25010-aligned) |
-| **Gap analysis** | AI agent identifies missing capabilities — not just hand-rolled code, but things you should have but don't (e.g., no error monitoring, no rate limiting, no event-driven workflows) |
-| **Ecosystem-level recommendations** | Solutions include rationale, companion packages, anti-patterns, and alternatives — not just "use library X" |
-| **Context7 verification** | Every recommendation verified against real, version-correct documentation |
+| **Pattern-based scanning** | Detects hand-rolled code across 30 domains with 40+ regex patterns (design-system, auth, state-management, etc.) |
+| **Structural analysis** | Detects monorepo architecture gaps: missing token layers, dependency flow violations, hardcoded config values |
+| **Gap analysis** | AI agent identifies missing capabilities — not just hand-rolled code, but things you should have but don't |
+| **Ecosystem-level recommendations** | Solutions include rationale, companion packages, anti-patterns, and alternatives |
+| **Context7 verification** | Every recommendation (replacements AND gaps) verified with exponential backoff retry |
 | **7-dimension impact scoring** | Scalability, performance, security, maintainability, feature richness, UX, UI aesthetics |
 | **Phased migration plans** | Low / medium / high risk phases with adapter strategies |
 | **Deletion checklists** | Every file and line range to remove, with estimated lines saved |
 | **UX completeness audit** | A11y, error/empty/loading states, form validation, design system alignment |
+| **Design system support** | Two paths: scaffold from reference repos (Primer, Polaris, Supabase, Dub) or extract from existing code |
 | **Monorepo support** | Detects npm, pip, cargo, go workspaces independently |
 
-### Dependency Management (v2.0)
+### Dependency Management
 
 | Feature | Description |
 |---------|-------------|
@@ -133,13 +148,14 @@ Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent
 ## How It Works
 
 ```
-Input ─> Validator ─> Scanner ─> Recommender (AI Agent) ─> Context7 Verifier
+Input ─> Validator ─> Scanner + Structure Analyzer
+  ─> Gap Analysis (AI Agent) ─> Recommender (AI Agent) ─> Context7 Verifier
   ─> Impact Scorer ─> Conflict Detection ─> Vuln Scanner ─> License Filter
   ─> Migration Planner ─> UX Auditor ─> Auto-Updater
   ─> Serializer ─> PR Creator ─> Output
 ```
 
-**Key architecture**: The scanner detects WHAT is hand-rolled; the **Recommender** (AI agent or caller) decides WHAT library to use. No library recommendations are hardcoded — they are provided dynamically based on project context, ecosystem knowledge, and Context7 verification.
+**Key architecture**: The scanner detects WHAT is hand-rolled; the structure analyzer detects architectural gaps; the **Recommender** (AI agent or caller) decides WHAT to use. No library recommendations are hardcoded — they are provided dynamically based on project context, ecosystem knowledge, and Context7 verification.
 
 Each stage is a pure function with structured I/O. All external dependencies (Context7, OSV, npm registry, GitHub API) are **injected via interfaces** for testability.
 
@@ -166,14 +182,14 @@ function t(key, locale) {
 <td>
 
 ```tsx
-// next-intl — Context7 verified, MIT
-// Impact: 9.2/10 composite
-// Migration risk: low | Effort: 8h
-import { useTranslations } from 'next-intl';
+// @lingui/core — Context7 verified, MIT
+// Ecosystem: @lingui/macro + @lingui/cli
+// Impact: 9.2/10 | Risk: low | Effort: 8h
+import { useLingui } from '@lingui/react';
 
 export default function Page() {
-  const t = useTranslations('common');
-  return <h1>{t('greeting')}</h1>;
+  const { t } = useLingui();
+  return <h1>{t`greeting`}</h1>;
 }
 ```
 
@@ -199,8 +215,8 @@ function logRequest(req) {
 
 ```typescript
 // pino — Context7 verified, MIT
-// Impact: 9.0/10 composite
-// Migration risk: low | Effort: 4h
+// Gap analysis: "No structured logging detected"
+// Priority: critical
 import pino from 'pino';
 const logger = pino({
   level: 'info',
@@ -217,11 +233,15 @@ const logger = pino({
 | Feature | Next-Unicorn | Snyk | Dependabot | Renovate |
 |---------|:---:|:---:|:---:|:---:|
 | Finds hand-rolled code to replace | **Yes** | | | |
+| Identifies missing capabilities (gaps) | **Yes** | | | |
+| Structural architecture analysis | **Yes** | | | |
 | Recommends new libraries | **Yes** | | | |
+| Ecosystem-level solutions | **Yes** | | | |
 | 7-dimension impact scoring | **Yes** | | | |
 | Context7 doc verification | **Yes** | | | |
 | Phased migration plans | **Yes** | | | |
 | UX completeness audit | **Yes** | | | |
+| Design system scaffold/extraction | **Yes** | | | |
 | Deletion checklists | **Yes** | | | |
 | Vulnerability scanning | **Yes** | Yes | Yes | |
 | Scans *recommended* libs for vulns | **Yes** | | | |
@@ -249,14 +269,18 @@ const logger = pino({
 
 ### `scanCodebase(input): Promise<ScanResult>`
 
-Standalone scanner — returns detections and workspace info without recommendations. AI agents can call this first, then provide recommendations via the `Recommender` callback.
+Standalone scanner — returns detections, workspace info, and structural findings (design system layer analysis, dependency flow violations). AI agents can call this first, then provide recommendations via the `Recommender` callback.
+
+### `analyzeStructure(repoPath, workspaces): StructuralAnalysis`
+
+Standalone structure analyzer — detects missing design system layers, dependency flow violations, hardcoded config values, and missing shared presets in monorepos.
 
 ### Output Structure
 
 ```jsonc
 {
   "recommendedChanges": [...],     // Replacement recommendations with impact scores
-  "gapAnalysis": [...],            // (optional) Missing capabilities with prioritized recs
+  "gapAnalysis": [...],            // (optional) Context7-verified gap recommendations
   "filesToDelete": [...],          // Files to remove after migration
   "linesSavedEstimate": 1250,      // Total lines saved
   "uxAudit": [...],                // UX completeness (8 categories)
@@ -272,16 +296,16 @@ Standalone scanner — returns detections and workspace info without recommendat
 
 ## Vibe Coding Domains
 
-68 domains across 11 categories, aligned with ISO/IEC 25010:
+68 domains across 11 categories, aligned with ISO/IEC 25010. 30 domains have scanner patterns; the rest are covered by AI agent gap analysis.
 
 | Category | Count | Examples |
 |----------|:-----:|---------|
-| UX / Design | 14 | `ux-completeness`, `a11y-accessibility`, `forms-ux`, `design-system` |
+| UX / Design | 14 | `design-system`, `a11y-accessibility`, `forms-ux`, `empty-loading-error-states` |
 | SEO / i18n | 5 | `seo`, `i18n`, `content-marketing` |
 | Growth / Data | 7 | `analytics-tracking`, `ab-testing-experimentation` |
-| Frontend Arch | 8 | `state-management`, `data-fetching-caching`, `agent-architecture` |
-| Backend / Platform | 8 | `database-orm-migrations`, `jobs-queue-scheduler`, `feature-flags-config` |
-| Security | 5 | `auth-security`, `permissions-rbac-ux`, `fraud-abuse-prevention` |
+| Frontend Arch | 8 | `state-management`, `data-fetching-caching`, `realtime-collaboration` |
+| Backend / Platform | 8 | `database-orm-migrations`, `caching-rate-limit`, `feature-flags-config` |
+| Security | 5 | `auth-security`, `security-hardening`, `fraud-abuse-prevention` |
 | Observability | 4 | `logging-tracing-metrics`, `error-monitoring` |
 | Delivery / DevEx | 6 | `testing-strategy`, `ci-cd-release`, `dependency-management` |
 | Performance | 3 | `performance-web-vitals`, `cost-optimization` |
@@ -293,7 +317,7 @@ Standalone scanner — returns detections and workspace info without recommendat
 ## Testing
 
 ```bash
-pnpm test          # 198 tests (vitest + fast-check)
+pnpm test          # 210 tests (vitest + fast-check)
 pnpm typecheck     # TypeScript strict mode
 pnpm build         # Compile to dist/
 ```
@@ -330,6 +354,13 @@ pnpm build         # Compile to dist/
 | [`update-plan.md`](./templates/update-plan.md) | Dependency update plan |
 | [`prd-template.md`](./templates/prd-template.md) | PRD for stakeholder presentation |
 
+## References
+
+| Reference | Purpose |
+|-----------|---------|
+| [`design-system-sources.md`](./references/design-system-sources.md) | 25+ curated design system repos for scaffolding (Primer, Polaris, Dub, Supabase, etc.) |
+| [`design-system-extraction.md`](./references/design-system-extraction.md) | Workflow for extracting a design system from existing code (6 principles, 5 phases) |
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, architecture overview, and contribution guidelines.
@@ -340,8 +371,8 @@ Releases are automated via GitHub Actions:
 
 ```bash
 # Tag a new version
-git tag v2.0.0
-git push origin v2.0.0
+git tag v1.0.5
+git push origin v1.0.5
 # → CI runs tests → creates GitHub Release → publishes to npmjs + GitHub Packages
 ```
 

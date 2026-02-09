@@ -100,7 +100,7 @@ describe('verifyRecommendation — retry logic', () => {
     expect(result.documentationUrl).toBe('https://date-fns.org/docs');
   });
 
-  it('returns "unavailable" when resolveLibraryId fails twice (after retry)', async () => {
+  it('returns "unavailable" when resolveLibraryId fails after all retries', async () => {
     let callCount = 0;
     const client: Context7Client = {
       resolveLibraryId: async (_name: string) => {
@@ -114,10 +114,10 @@ describe('verifyRecommendation — retry logic', () => {
 
     const result = await verifyRecommendation(client, 'date-fns', 'date-formatting');
 
-    expect(callCount).toBe(2); // initial + 1 retry
+    expect(callCount).toBe(3); // 3 attempts with exponential backoff
     expect(result.status).toBe('unavailable');
     expect(result.note).toContain('date-fns');
-    expect(result.note).toContain('retry');
+    expect(result.note).toContain('retries');
   });
 
   it('retries getLibraryDocs once on failure then succeeds', async () => {
@@ -140,7 +140,7 @@ describe('verifyRecommendation — retry logic', () => {
     expect(result.version).toBe('3.23.0');
   });
 
-  it('returns "unavailable" when getLibraryDocs fails twice (after retry)', async () => {
+  it('returns "unavailable" when getLibraryDocs fails after all retries', async () => {
     let docsCallCount = 0;
     const client: Context7Client = {
       resolveLibraryId: async (_name: string) => 'ctx7/zod',
@@ -152,11 +152,11 @@ describe('verifyRecommendation — retry logic', () => {
 
     const result = await verifyRecommendation(client, 'zod', 'schema-validation');
 
-    expect(docsCallCount).toBe(2); // initial + 1 retry
+    expect(docsCallCount).toBe(3); // 3 attempts with exponential backoff
     expect(result.status).toBe('unavailable');
     expect(result.libraryId).toBe('ctx7/zod');
     expect(result.note).toContain('zod');
-    expect(result.note).toContain('retry');
+    expect(result.note).toContain('retries');
   });
 });
 
@@ -277,7 +277,7 @@ describe('verifyAllRecommendations', () => {
 
     expect(results.size).toBe(3);
     expect(results.get(0)?.status).toBe('verified');
-    // flaky-lib fails twice (initial + retry) → unavailable
+    // flaky-lib fails after 3 retries with exponential backoff → unavailable
     expect(results.get(1)?.status).toBe('unavailable');
     // pino should still be verified — failure is isolated
     expect(results.get(2)?.status).toBe('verified');
@@ -344,7 +344,7 @@ describe('verifyAllRecommendations', () => {
 
     await verifyAllRecommendations(client, items);
 
-    expect(resolveLibraryIdSpy).toHaveBeenCalledWith('date-fns');
+    expect(resolveLibraryIdSpy).toHaveBeenCalledWith('date-fns', 'i18n-date-formatting');
     expect(getLibraryDocsSpy).toHaveBeenCalledWith('ctx7/date-fns', 'i18n-date-formatting');
   });
 });
