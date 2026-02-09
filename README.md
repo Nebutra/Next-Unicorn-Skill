@@ -14,7 +14,7 @@
   <a href="https://github.com/Nebutra/Next-Unicorn-Skill/stargazers"><img src="https://img.shields.io/github/stars/Nebutra/Next-Unicorn-Skill.svg?style=social" alt="GitHub Stars" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue.svg" alt="TypeScript" /></a>
-  <a href="./tests/"><img src="https://img.shields.io/badge/tests-210%20passed-brightgreen.svg" alt="Tests" /></a>
+  <a href="./tests/"><img src="https://img.shields.io/badge/tests-176%20passed-brightgreen.svg" alt="Tests" /></a>
   <a href="./tests/"><img src="https://img.shields.io/badge/properties-29%20verified-purple.svg" alt="Property Tests" /></a>
 </p>
 
@@ -137,7 +137,7 @@ Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent
 
 | Feature | Description |
 |---------|-------------|
-| **Pattern-based scanning** | Detects hand-rolled code across 30 domains with 40+ regex patterns (design-system, auth, state-management, etc.) |
+| **Pattern-based scanning** | Detects hand-rolled code across 31 domains with 52 regex patterns (design-system, auth, state-management, code-organization, etc.) |
 | **Structural analysis** | Detects monorepo architecture gaps: missing token layers, dependency flow violations, hardcoded config values |
 | **Gap analysis** | AI agent identifies missing capabilities — not just hand-rolled code, but things you should have but don't |
 | **Ecosystem-level recommendations** | Solutions include rationale, companion packages, anti-patterns, and alternatives |
@@ -147,6 +147,8 @@ Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent
 | **Deletion checklists** | Every file and line range to remove, with estimated lines saved |
 | **UX completeness audit** | A11y, error/empty/loading states, form validation, design system alignment |
 | **Design system support** | Two paths: scaffold from reference repos (Primer, Polaris, Supabase, Dub) or extract from existing code |
+| **Code organization analysis** | Detects god directories, mixed naming conventions, deep nesting, barrel bloat, catch-all directories, and circular dependencies via import graph traversal |
+| **Human-in-the-loop gates** | 4 structured decision gates at irreversible/preference-driven points — triage, preferences (SWOT), accept/reject, execution confirmation |
 | **Monorepo support** | Detects npm, pip, cargo, go workspaces independently |
 
 ### Dependency Management
@@ -170,7 +172,7 @@ flowchart TB
 
     subgraph deterministic [Deterministic Layer — TypeScript]
         V[Zod Validator]
-        S[Scanner — 40+ regex patterns across 30 domains]
+        S[Scanner — 52 regex patterns across 31 domains]
         SA[Structure Analyzer — monorepo architecture, dependency flow, token layers]
         C7[Context7 Verifier — exponential backoff, query ranking]
         VS[Vuln Scanner — OSV database]
@@ -210,7 +212,7 @@ flowchart TB
 
 | Principle | Implementation |
 |-----------|---------------|
-| **Occam's Razor** | Only 16 TS modules remain — each does something Claude cannot (regex, semver, file I/O, API calls). Scoring, planning, UX audit, PR descriptions are AI-agent-driven. |
+| **Occam's Razor** | Only 17 TS modules remain — each does something Claude cannot (regex, semver, file I/O, API calls, import graph traversal). Scoring, planning, UX audit, PR descriptions are AI-agent-driven. |
 | **No hardcoded recommendations** | Pattern catalog contains zero library names. The `Recommender` callback and `GapRecommendation` are filled by the AI agent at runtime. |
 | **Context7 best practices** | Exponential backoff (3 retries), query parameter for ranking, per-library isolation. Both replacements and gaps are verified. |
 | **Progressive disclosure** | SKILL.md is 111 lines. `references/` files load only when design system gaps are detected. |
@@ -302,6 +304,8 @@ const logger = pino({
 | Phased migration plans | **Yes** | | | |
 | UX completeness audit | **Yes** | | | |
 | Design system scaffold/extraction | **Yes** | | | |
+| Code organization analysis | **Yes** | | | |
+| Human-in-the-loop gates | **Yes** | | | |
 | Deletion checklists | **Yes** | | | |
 | Vulnerability scanning | **Yes** | Yes | Yes | |
 | Scans *recommended* libs for vulns | **Yes** | | | |
@@ -356,7 +360,7 @@ Standalone structure analyzer — detects missing design system layers, dependen
 
 ## Vibe Coding Domains
 
-68 domains across 11 categories, aligned with ISO/IEC 25010. 30 domains have scanner patterns; the rest are covered by AI agent gap analysis.
+69 domains across 12 categories, aligned with ISO/IEC 25010. 31 domains have scanner patterns; the rest are covered by AI agent gap analysis.
 
 | Category | Count | Examples |
 |----------|:-----:|---------|
@@ -367,6 +371,7 @@ Standalone structure analyzer — detects missing design system layers, dependen
 | Backend / Platform | 8 | `database-orm-migrations`, `caching-rate-limit`, `feature-flags-config` |
 | Security | 5 | `auth-security`, `security-hardening`, `fraud-abuse-prevention` |
 | Observability | 4 | `logging-tracing-metrics`, `error-monitoring` |
+| Code Organization | 1 | `code-organization` (god-dirs, naming, circular deps, barrel bloat, nesting, catch-all) |
 | Delivery / DevEx | 6 | `testing-strategy`, `ci-cd-release`, `dependency-management` |
 | Performance | 3 | `performance-web-vitals`, `cost-optimization` |
 | AI Engineering | 3 | `ai-model-serving`, `rag-vector-search` |
@@ -377,7 +382,7 @@ Standalone structure analyzer — detects missing design system layers, dependen
 ## Testing
 
 ```bash
-pnpm test          # 210 tests (vitest + fast-check)
+pnpm test          # 176 tests (vitest + fast-check)
 pnpm typecheck     # TypeScript strict mode
 pnpm build         # Compile to dist/
 ```
@@ -420,6 +425,7 @@ pnpm build         # Compile to dist/
 |-----------|---------|
 | [`design-system-sources.md`](./references/design-system-sources.md) | 25+ curated design system repos for scaffolding (Primer, Polaris, Dub, Supabase, etc.) |
 | [`design-system-extraction.md`](./references/design-system-extraction.md) | Workflow for extracting a design system from existing code (6 principles, 5 phases) |
+| [`code-organization-workflow.md`](./references/code-organization-workflow.md) | Code organization decision tree, Gate examples (SWOT), Phase A/B workflow with worked examples |
 
 <!-- TODO: P1 — 项目 Logo: 设计一个 Logo 放在 README 顶部，同时用作 GitHub Social Preview -->
 <!-- TODO: P1 — Social Preview / OG Image: 到 GitHub repo Settings → Social preview 上传卡片图 -->

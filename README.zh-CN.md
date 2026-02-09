@@ -14,7 +14,7 @@
   <a href="https://github.com/Nebutra/Next-Unicorn-Skill/stargazers"><img src="https://img.shields.io/github/stars/Nebutra/Next-Unicorn-Skill.svg?style=social" alt="GitHub Stars" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-blue.svg" alt="TypeScript" /></a>
-  <a href="./tests/"><img src="https://img.shields.io/badge/tests-210%20passed-brightgreen.svg" alt="Tests" /></a>
+  <a href="./tests/"><img src="https://img.shields.io/badge/tests-176%20passed-brightgreen.svg" alt="Tests" /></a>
   <a href="./tests/"><img src="https://img.shields.io/badge/properties-29%20verified-purple.svg" alt="Property Tests" /></a>
 </p>
 
@@ -137,7 +137,7 @@ if (result.success) {
 
 | 功能 | 描述 |
 |------|------|
-| **基于模式的扫描** | 使用 40+ 正则模式跨 30 个领域检测手写代码（设计系统、认证、状态管理等） |
+| **基于模式的扫描** | 使用 52 个正则模式跨 31 个领域检测手写代码（设计系统、认证、状态管理、代码组织等） |
 | **结构分析** | 检测 Monorepo 架构缺陷：缺失的 Token 层、依赖流向违规、硬编码配置值 |
 | **缺口分析** | AI 代理识别缺失的能力 —— 不仅是手写代码，还包括你应有但没有的东西 |
 | **生态级推荐** | 解决方案包含理由、配套包、反模式和替代方案 |
@@ -147,6 +147,8 @@ if (result.success) {
 | **删除清单** | 列出每个待删文件和行范围，附预估节省行数 |
 | **UX 完整性审计** | 无障碍、错误/空/加载状态、表单验证、设计系统对齐 |
 | **设计系统支持** | 两条路径：从参考仓库搭建（Primer、Polaris、Supabase、Dub）或从现有代码中提取 |
+| **代码组织分析** | 检测上帝目录、混合命名规范、过深嵌套、Barrel 膨胀、万能目录和循环依赖（通过 import 图遍历） |
+| **人机协作闸门** | 4 个结构化决策闸门：分诊、偏好选择（SWOT）、接受/拒绝推荐、执行确认 |
 | **Monorepo 支持** | 独立检测 npm、pip、cargo、go 工作区 |
 
 ### 依赖管理
@@ -170,7 +172,7 @@ flowchart TB
 
     subgraph deterministic [确定性层 — TypeScript]
         V[Zod 验证器]
-        S[扫描器 — 40+ 正则模式覆盖 30 个领域]
+        S[扫描器 — 52 个正则模式覆盖 31 个领域]
         SA[结构分析器 — Monorepo 架构、依赖流向、Token 层]
         C7[Context7 验证器 — 指数退避、查询排序]
         VS[漏洞扫描器 — OSV 数据库]
@@ -210,7 +212,7 @@ flowchart TB
 
 | 原则 | 实现方式 |
 |------|----------|
-| **奥卡姆剃刀** | 仅保留 16 个 TS 模块 —— 每个模块做 Claude 无法做的事（正则、semver、文件 I/O、API 调用）。评分、规划、UX 审计、PR 描述由 AI 代理驱动。 |
+| **奥卡姆剃刀** | 仅保留 17 个 TS 模块 —— 每个模块做 Claude 无法做的事（正则、semver、文件 I/O、API 调用、import 图遍历）。评分、规划、UX 审计、PR 描述由 AI 代理驱动。 |
 | **不硬编码推荐** | 模式目录中不包含任何库名。`Recommender` 回调和 `GapRecommendation` 由 AI 代理在运行时填充。 |
 | **Context7 最佳实践** | 指数退避（3 次重试），用于排序的查询参数，按库隔离。替换和缺口均经过验证。 |
 | **渐进式披露** | SKILL.md 仅 111 行。`references/` 文件仅在检测到设计系统缺口时加载。 |
@@ -302,6 +304,8 @@ const logger = pino({
 | 分阶段迁移计划 | **支持** | | | |
 | UX 完整性审计 | **支持** | | | |
 | 设计系统搭建/提取 | **支持** | | | |
+| 代码组织分析 | **支持** | | | |
+| 人机协作闸门 | **支持** | | | |
 | 删除清单 | **支持** | | | |
 | 漏洞扫描 | **支持** | 支持 | 支持 | |
 | 扫描*推荐库*的漏洞 | **支持** | | | |
@@ -356,7 +360,7 @@ const logger = pino({
 
 ## Vibe Coding 领域
 
-68 个领域横跨 11 个类别，对齐 ISO/IEC 25010。其中 30 个领域有扫描器模式支持，其余由 AI 代理缺口分析覆盖。
+69 个领域横跨 12 个类别，对齐 ISO/IEC 25010。其中 31 个领域有扫描器模式支持，其余由 AI 代理缺口分析覆盖。
 
 | 类别 | 数量 | 示例 |
 |------|:----:|------|
@@ -367,6 +371,7 @@ const logger = pino({
 | 后端 / 平台 | 8 | `database-orm-migrations`、`caching-rate-limit`、`feature-flags-config` |
 | 安全 | 5 | `auth-security`、`security-hardening`、`fraud-abuse-prevention` |
 | 可观测性 | 4 | `logging-tracing-metrics`、`error-monitoring` |
+| 代码组织 | 1 | `code-organization`（上帝目录、命名规范、循环依赖、Barrel 膨胀、嵌套、万能目录） |
 | 交付 / 开发体验 | 6 | `testing-strategy`、`ci-cd-release`、`dependency-management` |
 | 性能 | 3 | `performance-web-vitals`、`cost-optimization` |
 | AI 工程 | 3 | `ai-model-serving`、`rag-vector-search` |
@@ -377,7 +382,7 @@ const logger = pino({
 ## 测试
 
 ```bash
-pnpm test          # 210 个测试（vitest + fast-check）
+pnpm test          # 176 个测试（vitest + fast-check）
 pnpm typecheck     # TypeScript 严格模式
 pnpm build         # 编译到 dist/
 ```
@@ -420,6 +425,7 @@ pnpm build         # 编译到 dist/
 |------|------|
 | [`design-system-sources.md`](./references/design-system-sources.md) | 25+ 精选设计系统仓库，用于搭建（Primer、Polaris、Dub、Supabase 等） |
 | [`design-system-extraction.md`](./references/design-system-extraction.md) | 从现有代码提取设计系统的工作流（6 原则，5 阶段） |
+| [`code-organization-workflow.md`](./references/code-organization-workflow.md) | 代码组织决策树、Gate 示例（SWOT）、Phase A/B 工作流及实例 |
 
 <!-- TODO: P1 — 项目 Logo: 设计一个 Logo 放在 README 顶部，同时用作 GitHub Social Preview -->
 <!-- TODO: P1 — Social Preview / OG Image: 到 GitHub repo Settings → Social preview 上传卡片图 -->
