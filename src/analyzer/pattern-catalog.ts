@@ -604,6 +604,39 @@ export function getPatternCatalog(): PatternDefinition[] {
     // H. Delivery / Quality / DevEx
     // -----------------------------------------------------------------------
 
+    // code-organization
+    {
+      id: 'org-deep-relative-import',
+      domain: 'code-organization',
+      description: 'Deep relative import path (3+ parent traversals) indicating poor module structure',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      codePatterns: [
+        /(?:import|from)\s+['"`]\.\.\/\.\.\/\.\.\//,
+        /require\s*\(\s*['"`]\.\.\/\.\.\/\.\.\//,
+      ],
+      confidenceBase: 0.75,
+    },
+    {
+      id: 'org-barrel-reexport-wildcard',
+      domain: 'code-organization',
+      description: 'Wildcard barrel re-export (export * from) — risks namespace pollution and circular deps',
+      filePatterns: ['**/index.ts', '**/index.tsx', '**/index.js', '**/index.jsx'],
+      codePatterns: [
+        /export\s+\*\s+from\s+['"`]/,
+      ],
+      confidenceBase: 0.65,
+    },
+    {
+      id: 'org-catch-all-utils-import',
+      domain: 'code-organization',
+      description: 'Import from catch-all utils/helpers/common directory — should be split by domain',
+      filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      codePatterns: [
+        /(?:import|from)\s+['"`][.\/]*(?:utils|helpers|common|shared|lib)\/(?!index)/,
+        /require\s*\(\s*['"`][.\/]*(?:utils|helpers|common|shared|lib)\//,
+      ],
+      confidenceBase: 0.5,
+    },
     // testing-strategy
     {
       id: 'test-manual-assertions',

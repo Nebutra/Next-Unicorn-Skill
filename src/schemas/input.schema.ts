@@ -84,6 +84,7 @@ export const VibeCodingDomain = z.enum([
   'alerting-incident-response',
 
   // H. Delivery / Quality / DevEx (Maintainability / DevEx)
+  'code-organization',
   'testing-strategy',
   'ci-cd-release',
   'devex-tooling',

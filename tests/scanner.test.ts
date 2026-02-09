@@ -83,6 +83,7 @@ describe('Pattern catalog', () => {
       'realtime-collaboration',
       'file-upload-media',
       'database-orm-migrations',
+      'code-organization',
       'testing-strategy',
       'performance-web-vitals',
     ] as const;

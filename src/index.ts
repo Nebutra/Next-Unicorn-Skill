@@ -51,7 +51,7 @@ import type { GitOperations } from './pr-creator/git-operations.js';
 // Version
 // ---------------------------------------------------------------------------
 
-export const VERSION = '1.0.6';
+export const VERSION = '1.0.7';
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -137,8 +137,10 @@ export type { InputSchema } from './schemas/input.schema.js';
 export type { OutputSchema, UxAuditItem } from './schemas/output.schema.js';
 export type { Detection, ScanResult } from './analyzer/scanner.js';
 export type { StructuralFinding, StructuralAnalysis } from './analyzer/structure-analyzer.js';
+export type { CodeOrganizationAnalysis } from './analyzer/code-organization-analyzer.js';
 export { scanCodebase } from './analyzer/scanner.js';
 export { analyzeStructure } from './analyzer/structure-analyzer.js';
+export { analyzeCodeOrganization } from './analyzer/code-organization-analyzer.js';
 export { getPatternCatalog } from './analyzer/pattern-catalog.js';
 export type { VulnerabilityClient } from './security/osv-client.js';
 export type { RegistryClient } from './updater/registry-client.js';

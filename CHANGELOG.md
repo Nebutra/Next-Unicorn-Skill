@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-02-09
+
+### Added
+
+- **Code Organization Analysis** — new deterministic module that detects structural code organization issues via filesystem traversal. Claude cannot infer these from knowledge alone.
+  - `god-directory` — directory with >15 source files (should split by feature/domain)
+  - `mixed-naming-convention` — files in same directory using different naming styles
+  - `deep-nesting` — directory tree exceeding 5 levels from `src/`
+  - `barrel-bloat` — index file with >10 re-exports
+  - `catch-all-directory` — `utils/helpers/shared/common/lib` with >10 files
+  - `circular-dependency` — import cycles detected via DFS graph traversal
+  - `mixed-export-style` — files mixing default export with 3+ named exports
+- 3 new scanner patterns in `code-organization` domain:
+  - `org-deep-relative-import` — imports traversing 3+ parent directories
+  - `org-barrel-reexport-wildcard` — `export * from` in index files
+  - `org-catch-all-utils-import` — imports from catch-all utils/helpers directories
+- New `code-organization` domain in `VibeCodingDomain` enum (69 total domains)
+- New `codeOrganizationStats` field in `ScanResult` (file counts, naming conventions, circular dep count)
+- New `analyzeCodeOrganization()` standalone export for programmatic use
+- SKILL.md Step 2.7 with Phase A (deterministic) / Phase B (generative) dual-phase design, MUST/MUST NOT decision table, 3 concrete examples, and skip rules
+- 29 new tests (176 total) covering all scanner patterns and structural analysis rules
+
+### Changed
+
+- `StructuralFinding.type` extended with 6 new code organization types + optional `metadata` field
+- Code organization analysis runs for ALL projects (not just monorepos, unlike design system analysis)
+- Architecture diagram in SKILL.md updated to reflect two-track scanner (regex + filesystem)
+- Scanner step description expanded to list all `ScanResult` fields explicitly
+
 ## [1.0.3] - 2026-02-09
 
 ### Added

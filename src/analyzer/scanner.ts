@@ -30,6 +30,8 @@ export interface ScanResult {
   structuralFindings?: import('./structure-analyzer.js').StructuralFinding[];
   /** Detected design system layer info */
   designSystemLayers?: import('./structure-analyzer.js').StructuralAnalysis['designSystemLayers'];
+  /** Code organization analysis stats */
+  codeOrganizationStats?: import('./code-organization-analyzer.js').CodeOrganizationAnalysis['stats'];
 }
 
 // ---------------------------------------------------------------------------
@@ -389,5 +391,22 @@ export async function scanCodebase(input: InputSchema): Promise<ScanResult> {
     designSystemLayers = structural.designSystemLayers;
   }
 
-  return { detections, workspaces, structuralFindings, designSystemLayers };
+  // ── Code organization analysis (runs for ALL projects) ──
+  const { analyzeCodeOrganization } = await import('./code-organization-analyzer.js');
+  const codeOrgAnalysis = analyzeCodeOrganization(repoPath);
+
+  if (codeOrgAnalysis.findings.length > 0) {
+    structuralFindings = [
+      ...(structuralFindings ?? []),
+      ...codeOrgAnalysis.findings,
+    ];
+  }
+
+  return {
+    detections,
+    workspaces,
+    structuralFindings,
+    designSystemLayers,
+    codeOrganizationStats: codeOrgAnalysis.stats,
+  };
 }

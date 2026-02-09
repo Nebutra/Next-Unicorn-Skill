@@ -9,11 +9,18 @@ import type { WorkspaceScan } from './scanner.js';
 export interface StructuralFinding {
   /** Type of structural issue */
   type:
-    | 'missing-layer'         // expected architectural layer missing
-    | 'dependency-violation'  // package depends on something it shouldn't
-    | 'config-duplication'    // multiple packages define same config
-    | 'missing-shared-preset' // app tailwind config not using shared preset
-    | 'hardcoded-config-values'; // config file contains hardcoded design values
+    | 'missing-layer'           // expected architectural layer missing
+    | 'dependency-violation'    // package depends on something it shouldn't
+    | 'config-duplication'      // multiple packages define same config
+    | 'missing-shared-preset'   // app tailwind config not using shared preset
+    | 'hardcoded-config-values' // config file contains hardcoded design values
+    // Code organization types (added for code-organization domain)
+    | 'god-directory'           // directory with too many source files
+    | 'mixed-naming-convention' // files in same directory use different naming styles
+    | 'deep-nesting'            // directory tree exceeds reasonable depth
+    | 'barrel-bloat'            // index file with excessive re-exports
+    | 'catch-all-directory'     // utils/helpers/shared with too many unrelated files
+    | 'circular-dependency';    // files forming import cycles
   /** Vibe Coding domain this relates to */
   domain: string;
   /** Human-readable description */
@@ -22,6 +29,8 @@ export interface StructuralFinding {
   paths: string[];
   /** Severity level */
   severity: 'critical' | 'warning' | 'info';
+  /** Optional structured metadata for tooling */
+  metadata?: Record<string, unknown>;
 }
 
 export interface StructuralAnalysis {
