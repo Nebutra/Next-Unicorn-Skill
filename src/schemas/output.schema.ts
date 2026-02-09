@@ -255,6 +255,38 @@ export const PRSummarySchema = z.object({
 export type PRSummary = z.infer<typeof PRSummarySchema>;
 
 // ---------------------------------------------------------------------------
+// Gap Analysis schema — capabilities the project should have but doesn't
+// ---------------------------------------------------------------------------
+
+export const GapPriority = z.enum(['critical', 'recommended', 'nice-to-have']);
+export type GapPriority = z.infer<typeof GapPriority>;
+
+export const GapRecommendationSchema = z.object({
+  domain: z.string(),
+  description: z.string(),
+  recommendedLibrary: z.object({
+    name: z.string(),
+    version: z.string(),
+    license: z.string(),
+    documentationUrl: z.string().optional(),
+    rationale: z.string().optional(),
+    ecosystem: z.array(z.object({
+      library: z.string(),
+      version: z.string(),
+      role: z.string(),
+    })).optional(),
+    antiPatterns: z.array(z.string()).optional(),
+    alternatives: z.array(z.object({
+      library: z.string(),
+      when: z.string(),
+    })).optional(),
+  }),
+  priority: GapPriority,
+});
+
+export type GapRecommendation = z.infer<typeof GapRecommendationSchema>;
+
+// ---------------------------------------------------------------------------
 // OutputSchema — extended with Phase 2 optional sections
 // ---------------------------------------------------------------------------
 
@@ -274,6 +306,8 @@ export const OutputSchema = z.object({
     ),
     peerDependencyWarnings: z.array(PeerDependencyWarning),
   }),
+  // Gap analysis — capabilities the project should have but doesn't
+  gapAnalysis: z.array(GapRecommendationSchema).optional(),
   // Phase 2 optional sections
   vulnerabilityReport: VulnReportSchema.optional(),
   updatePlan: UpdatePlanSchema.optional(),

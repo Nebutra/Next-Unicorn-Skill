@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { analyze, VERSION } from '../src/index.js';
-import type { Recommender, LibraryRecommendation } from '../src/index.js';
+import type { Recommender, LibraryRecommendation, GapRecommendation } from '../src/index.js';
 import type { Context7Client } from '../src/verifier/context7.js';
 import { OutputSchema } from '../src/schemas/output.schema.js';
 import type { InputSchema } from '../src/schemas/input.schema.js';
@@ -117,7 +117,7 @@ afterEach(() => {
 
 describe('VERSION export', () => {
   it('still exports VERSION alongside the orchestrator', () => {
-    expect(VERSION).toBe('1.0.2');
+    expect(VERSION).toBe('1.0.3');
   });
 });
 
@@ -798,5 +798,117 @@ describe('analyze — peer dependency warnings', () => {
     const domains = new Set(result.output.recommendedChanges.map(r => r.domain));
     expect(domains.has('error-handling-resilience')).toBe(true);
     expect(domains.has('database-orm-migrations')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gap analysis — missing capabilities
+// ---------------------------------------------------------------------------
+
+describe('analyze — gap analysis', () => {
+  it('includes gap recommendations in output when provided', async () => {
+    writeFile('src/index.ts', 'export const x = 1;');
+
+    const gaps: GapRecommendation[] = [
+      {
+        domain: 'observability',
+        description: 'No structured logging detected',
+        recommendedLibrary: {
+          name: 'pino',
+          version: '^9.0.0',
+          license: 'MIT',
+          rationale: 'Fastest Node.js JSON logger with redaction and child loggers',
+          ecosystem: [
+            { library: 'pino-http', version: '^10.0.0', role: 'Request logging middleware' },
+            { library: 'pino-pretty', version: '^11.0.0', role: 'Dev-mode pretty printing' },
+          ],
+        },
+        priority: 'critical',
+      },
+      {
+        domain: 'auth-security',
+        description: 'No rate limiting or bot protection detected',
+        recommendedLibrary: {
+          name: 'arcjet',
+          version: '^1.0.0',
+          license: 'Apache-2.0',
+          rationale: 'Unified security layer with rate limiting, bot detection, email validation',
+          alternatives: [
+            { library: '@upstash/ratelimit', when: 'Serverless/edge with Redis backend' },
+          ],
+        },
+        priority: 'recommended',
+      },
+    ];
+
+    const result = await analyze({
+      input: makeValidInput(),
+      context7Client: makeMockContext7Client(),
+      recommender: makeMockRecommender(),
+      gaps,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    // Gap analysis should be in output
+    expect(result.output.gapAnalysis).toBeDefined();
+    expect(result.output.gapAnalysis).toHaveLength(2);
+
+    const loggingGap = result.output.gapAnalysis![0]!;
+    expect(loggingGap.domain).toBe('observability');
+    expect(loggingGap.description).toContain('structured logging');
+    expect(loggingGap.recommendedLibrary.name).toBe('pino');
+    expect(loggingGap.recommendedLibrary.rationale).toContain('Fastest');
+    expect(loggingGap.recommendedLibrary.ecosystem).toHaveLength(2);
+    expect(loggingGap.priority).toBe('critical');
+
+    const rateLimitGap = result.output.gapAnalysis![1]!;
+    expect(rateLimitGap.domain).toBe('auth-security');
+    expect(rateLimitGap.recommendedLibrary.name).toBe('arcjet');
+    expect(rateLimitGap.recommendedLibrary.alternatives).toHaveLength(1);
+    expect(rateLimitGap.priority).toBe('recommended');
+
+    // Output should still be valid against OutputSchema
+    const parsed = OutputSchema.safeParse(result.output);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('omits gapAnalysis from output when no gaps provided', async () => {
+    writeFile('src/index.ts', 'export const x = 1;');
+
+    const result = await analyze({
+      input: makeValidInput(),
+      context7Client: makeMockContext7Client(),
+      recommender: makeMockRecommender(),
+      // No gaps provided
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.output.gapAnalysis).toBeUndefined();
+
+    const parsed = OutputSchema.safeParse(result.output);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('omits gapAnalysis from output when empty array provided', async () => {
+    writeFile('src/index.ts', 'export const x = 1;');
+
+    const result = await analyze({
+      input: makeValidInput(),
+      context7Client: makeMockContext7Client(),
+      recommender: makeMockRecommender(),
+      gaps: [],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.output.gapAnalysis).toBeUndefined();
+
+    const parsed = OutputSchema.safeParse(result.output);
+    expect(parsed.success).toBe(true);
   });
 });

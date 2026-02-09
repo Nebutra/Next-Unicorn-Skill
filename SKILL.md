@@ -1,7 +1,7 @@
 ---
 name: analyze-and-recommend-third-party-optimizations
 description: Scans any codebase and identifies where hand-rolled implementations should be replaced by battle-tested third-party libraries, producing structured migration plans with Context7-verified recommendations
-version: 1.0.2
+version: 1.0.3
 author: TsekaLuk
 tags:
   - code-analysis
@@ -20,17 +20,20 @@ tags:
 
 ## Purpose
 
-Scan a codebase to identify hand-rolled implementations that should be replaced by third-party libraries. The scanner detects WHAT is hand-rolled; the AI agent decides WHAT to recommend based on project context, current ecosystem knowledge, and Context7 MCP verification.
+Two-pronged analysis: (1) detect hand-rolled code that should be replaced by libraries, and (2) identify missing capabilities the project should have. The scanner pre-filters; the AI agent provides unicorn-grade recommendations — ecosystem-level solutions with rationale, anti-patterns, and alternatives, verified via Context7 MCP.
 
 ## Architecture
 
 ```
-Scanner (deterministic)     →  AI Agent (generative)        →  Pipeline (deterministic)
-Regex patterns detect          Agent recommends library         Score, plan, audit,
-hand-rolled code               using knowledge + Context7       filter, serialize
+Scanner (deterministic)     →  AI Agent (generative)           →  Pipeline (deterministic)
+Regex patterns detect          1. Recommend replacements           Score, plan, audit,
+hand-rolled code               2. Identify capability gaps         filter, serialize
+                               using knowledge + Context7
 ```
 
-**Key principle**: The pattern catalog contains NO hardcoded library recommendations. Library choices depend on project framework, runtime, existing dependencies, and current ecosystem state — all of which the AI agent evaluates dynamically.
+**Key principles**:
+- No hardcoded library recommendations — the AI agent evaluates project context dynamically
+- Two analysis modes: **replacement** (hand-rolled code → library) and **gap** (missing capability → library)
 
 ## Standard Operating Procedure
 
@@ -52,6 +55,30 @@ Run `scanCodebase(input)` to walk the file tree and match against regex patterns
 4. Returns `ScanResult` with detections and workspace info
 
 Detections contain **no library suggestions** — only what was detected and where.
+
+### Step 2.5: Gap Analysis (AI Agent)
+
+Beyond what the scanner detects (hand-rolled code), analyze what the project is **missing entirely**. Review `currentLibraries`, `languages`, `optimizationGoals`, and `priorityFocusAreas` to identify capability gaps.
+
+Think at the level of unicorn-grade products:
+- "No structured logging" → recommend pino + OpenTelemetry ecosystem
+- "No error monitoring" → recommend Sentry with source maps + release health
+- "No event-driven workflows" → recommend Inngest for reliable async tasks
+- "Using nodemailer" → recommend Resend for modern transactional email
+- "No rate limiting or bot protection" → recommend Arcjet as unified security layer
+- "REST API without type safety" → recommend tRPC for end-to-end types
+
+Provide each gap as a `GapRecommendation`:
+```typescript
+{
+  domain: string;                // e.g., "observability"
+  description: string;           // e.g., "No structured logging detected"
+  recommendedLibrary: { name, version, license, rationale?, ecosystem?, antiPatterns?, alternatives? };
+  priority: 'critical' | 'recommended' | 'nice-to-have';
+}
+```
+
+Pass gaps to `analyze()` via the `gaps` option. They appear in the output as `gapAnalysis`.
 
 ### Step 3: Recommend Solutions (AI Agent)
 
@@ -111,29 +138,44 @@ Filter by license allowlist, detect dependency conflicts, serialize to JSON.
 
 ```typescript
 import { analyze, scanCodebase } from './src/index.js';
-import type { Recommender } from './src/index.js';
+import type { Recommender, GapRecommendation } from './src/index.js';
 
 // Step 1: Scan standalone (for AI agent inspection)
 const scanResult = await scanCodebase(validatedInput);
 
-// Step 2: Full pipeline with recommender
+// Step 2: Full pipeline with recommender + gap analysis
 const recommender: Recommender = (detection) => ({
   library: 'zustand',
   version: '^5.0.0',
   license: 'MIT',
+  rationale: 'Minimal state library — no providers, 1KB gzipped',
 });
+
+const gaps: GapRecommendation[] = [
+  {
+    domain: 'observability',
+    description: 'No structured logging detected',
+    recommendedLibrary: {
+      name: 'pino', version: '^9.0.0', license: 'MIT',
+      rationale: 'Fastest Node.js JSON logger with redaction and child loggers',
+    },
+    priority: 'critical',
+  },
+];
 
 const result = await analyze({
   input: inputJson,
   context7Client: myContext7Client,
-  recommender, // AI agent provides this
+  recommender,
+  gaps,  // AI agent identifies missing capabilities
 });
 ```
 
 ## Output Artifacts
 
 Single `OutputSchema` JSON containing:
-- `recommendedChanges` — recommendations with scores, verification status, adapter strategies
+- `recommendedChanges` — replacement recommendations with scores, verification, adapter strategies
+- `gapAnalysis` (optional) — missing capabilities with prioritized recommendations
 - `filesToDelete` — file paths to remove after migration
 - `linesSavedEstimate` — total lines saved
 - `uxAudit` — UX completeness checklist

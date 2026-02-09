@@ -112,6 +112,8 @@ Or use as an **MCP SKILL** — provide [`SKILL.md`](./SKILL.md) to your AI agent
 | Feature | Description |
 |---------|-------------|
 | **Pattern-based scanning** | Detects hand-rolled code across 68 Vibe Coding Domains (ISO 25010-aligned) |
+| **Gap analysis** | AI agent identifies missing capabilities — not just hand-rolled code, but things you should have but don't (e.g., no error monitoring, no rate limiting, no event-driven workflows) |
+| **Ecosystem-level recommendations** | Solutions include rationale, companion packages, anti-patterns, and alternatives — not just "use library X" |
 | **Context7 verification** | Every recommendation verified against real, version-correct documentation |
 | **7-dimension impact scoring** | Scalability, performance, security, maintainability, feature richness, UX, UI aesthetics |
 | **Phased migration plans** | Low / medium / high risk phases with adapter strategies |
@@ -239,6 +241,7 @@ const logger = pino({
 | `input` | `InputSchema` | Yes | Project metadata, goals, constraints, focus areas |
 | `context7Client` | `Context7Client` | Yes | Context7 MCP client for doc verification |
 | `recommender` | `Recommender` | Yes | Maps each detection → library recommendation (AI agent provides this) |
+| `gaps` | `GapRecommendation[]` | No | Missing capabilities the project should have (AI agent identifies these) |
 | `vulnClient` | `VulnerabilityClient` | No | OSV client for vulnerability scanning |
 | `registryClient` | `RegistryClient` | No | Package registry client for auto-update |
 | `platformClient` | `PlatformClient` | No | GitHub/GitLab client for PR creation |
@@ -252,7 +255,8 @@ Standalone scanner — returns detections and workspace info without recommendat
 
 ```jsonc
 {
-  "recommendedChanges": [...],     // Recommendations with impact scores
+  "recommendedChanges": [...],     // Replacement recommendations with impact scores
+  "gapAnalysis": [...],            // (optional) Missing capabilities with prioritized recs
   "filesToDelete": [...],          // Files to remove after migration
   "linesSavedEstimate": 1250,      // Total lines saved
   "uxAudit": [...],                // UX completeness (8 categories)

@@ -55,7 +55,7 @@ import type { GitOperations } from './pr-creator/git-operations.js';
 // Version
 // ---------------------------------------------------------------------------
 
-export const VERSION = '1.0.2';
+export const VERSION = '1.0.3';
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -111,6 +111,37 @@ export interface LibraryRecommendation {
  */
 export type Recommender = (detection: Detection) => LibraryRecommendation | null;
 
+/**
+ * A capability gap identified by the AI agent — something the project
+ * SHOULD have but DOESN'T. Unlike scanner detections (which find hand-rolled
+ * code to replace), gaps identify missing capabilities entirely.
+ *
+ * Examples:
+ * - "No structured logging" → recommend pino
+ * - "No error monitoring" → recommend Sentry
+ * - "No rate limiting" → recommend Arcjet
+ * - "No event-driven workflows" → recommend Inngest
+ */
+export interface GapRecommendation {
+  /** The Vibe Coding domain this gap belongs to */
+  domain: string;
+  /** What capability is missing (e.g., "No structured logging detected") */
+  description: string;
+  /** The recommended solution */
+  recommendedLibrary: {
+    name: string;
+    version: string;
+    license: string;
+    documentationUrl?: string;
+    rationale?: string;
+    ecosystem?: Array<{ library: string; version: string; role: string }>;
+    antiPatterns?: string[];
+    alternatives?: Array<{ library: string; when: string }>;
+  };
+  /** How important is filling this gap */
+  priority: 'critical' | 'recommended' | 'nice-to-have';
+}
+
 export interface AnalyzeOptions {
   /** Raw input to be validated against InputSchema */
   input: unknown;
@@ -122,6 +153,12 @@ export interface AnalyzeOptions {
    * which library best fits each detected pattern based on project context.
    */
   recommender: Recommender;
+  /**
+   * Gap recommendations from the AI agent — capabilities the project should
+   * have but doesn't. The scanner finds "you hand-rolled X"; gaps find
+   * "you're missing Y entirely" (e.g., no error monitoring, no rate limiting).
+   */
+  gaps?: GapRecommendation[];
   /** Optional — if provided, enables vulnerability scanning */
   vulnClient?: VulnerabilityClient;
   /** Optional — if provided, enables auto-update recommendations */
@@ -461,6 +498,8 @@ export async function analyze(options: AnalyzeOptions): Promise<AnalyzeResult> {
       deletionChecklist: migrationPlan.deletionChecklist,
       peerDependencyWarnings: peerWarnings,
     },
+    // Gap analysis — capabilities the project should have but doesn't
+    gapAnalysis: options.gaps && options.gaps.length > 0 ? options.gaps : undefined,
     // Phase 2 optional sections
     vulnerabilityReport,
     updatePlan,
