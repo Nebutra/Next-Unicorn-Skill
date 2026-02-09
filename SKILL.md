@@ -25,6 +25,17 @@ Scanner (deterministic)          →  AI Agent (generative)           →  Pipel
 **Design constraints**:
 - No hardcoded library recommendations — evaluate project context dynamically
 - Two analysis modes: **replacement** (hand-rolled code found) and **gap** (capability missing entirely)
+- **Human-in-the-loop**: 4 gates at irreversible, preference-driven, or costly decision points
+
+## Gate Protocol
+
+Present structured choices at gates. NEVER skip or proceed without user response.
+
+**Format** — table of findings/options + lettered choices + your recommendation with 1-sentence rationale. For high-impact gates, add a SWOT table. See `references/code-organization-workflow.md` for full Gate examples.
+
+**Rules**:
+- If user says "do it all automatically", ask "confirm skip ALL gates?" first
+- After user decides, execute automatically and report results with rollback instructions
 
 ## Standard Operating Procedure
 
@@ -39,138 +50,81 @@ Run `scanCodebase(input)`. The scanner:
 1. Detect workspace roots for monorepo support
 2. Match code against 30+ domain patterns (i18n, auth, state-management, code-organization, etc.)
 3. Run structural analysis: design system layers (monorepo), code organization (all projects)
-4. Record each detection with: file path, line range, pattern category, confidence score, domain
-5. Return `ScanResult` with:
+4. Return `ScanResult` with:
    - `detections` — hand-rolled code patterns found
    - `structuralFindings` — architectural + code organization issues
    - `codeOrganizationStats` — project-wide metrics (file counts, naming conventions, circular dep count)
    - `workspaces` — monorepo workspace info
 
-Detections and findings contain no recommendations — only facts. The AI agent interprets them.
+Detections and findings contain no recommendations — only facts.
+
+### GATE 1: Triage Detections
+
+**Why**: Each accepted detection costs a Context7 verification call. False positives waste quota.
+
+Present scan results as a triage table with columns: #, Domain, Pattern, File, Confidence, Action. Offer options: (A) accept all, (B) skip specific numbers, (C) high-confidence only. See `references/code-organization-workflow.md#gate-1-triage-example` for format.
+
+Wait for user response. Proceed with accepted detections only.
 
 ### Step 2.5: Gap Analysis (AI Agent)
 
-Beyond scanner detections, analyze what the project is **missing entirely**. Inspect:
+Analyze what the project is **missing entirely**:
 
-1. **Installed dependencies** — identify low-level tools that should be upgraded to platform-level solutions
-2. **Monorepo structure** — identify missing architectural layers (e.g., shared token package, shared config preset)
-3. **Cross-cutting concerns** — identify absent capabilities: structured logging, error monitoring, rate limiting, event-driven workflows, transactional email, type-safe API layer
-4. **Architecture patterns** — identify opportunities for multi-package solutions (e.g., design-tokens → tailwind-config → ui three-layer architecture for design systems)
+1. **Installed dependencies** — low-level tools that should be upgraded to platform-level solutions
+2. **Monorepo structure** — missing architectural layers (e.g., shared token package, shared config preset)
+3. **Cross-cutting concerns** — absent capabilities: structured logging, error monitoring, rate limiting, transactional email, type-safe API layer
+4. **Architecture patterns** — opportunities for multi-package solutions (e.g., design-tokens → tailwind-config → ui)
 
-Analyze at three levels of depth:
-- **Single library gap**: missing one tool (e.g., no form validation library)
-- **Ecosystem gap**: missing a coordinated set of tools (e.g., no observability stack)
-- **Architecture gap**: missing an entire structural layer (e.g., no design system, no shared config)
+Analyze at three levels: **single library gap**, **ecosystem gap**, **architecture gap**.
 
-Provide each gap as a `GapRecommendation`. Read `src/index.ts` for the interface. Pass gaps via the `gaps` option in `analyze()`.
+Provide each gap as a `GapRecommendation`. Read `src/index.ts` for the interface.
 
-**Design system gaps** — Two paths depending on project maturity:
-- **No existing frontend**: Scaffold from reference repos. Read `references/design-system-sources.md` for curated sources and sparse-checkout workflow.
-- **Existing frontend without formal design system**: First extract the spec (audit → tokens → classify → document) via `references/design-system-extraction.md`, then implement the architecture via `references/design-system-sources.md`.
+**Design system gaps** — two paths:
+- **No existing frontend**: Read `references/design-system-sources.md` for curated repos and sparse-checkout workflow.
+- **Existing frontend**: Read `references/design-system-extraction.md` for extraction workflow, then `references/design-system-sources.md` for implementation.
 
 ### Step 2.7: Code Organization Analysis
 
-#### Phase A — Deterministic: Collect facts (MUST use tools, DO NOT estimate)
+#### Phase A — Collect facts (MUST use tools, DO NOT estimate)
 
 You cannot infer file counts, naming conventions, or import cycles from knowledge. You MUST read the filesystem.
 
 **If using the npm library** — `scanResult.structuralFindings` and `scanResult.codeOrganizationStats` already contain all findings. Skip to Phase B.
 
-**If not using the npm library** — run these shell commands to collect facts:
-
-```bash
-# 1. God directories: find directories with >15 source files
-find src -type d -exec sh -c 'count=$(find "$1" -maxdepth 1 -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) | wc -l); [ "$count" -gt 15 ] && echo "$1: $count files"' _ {} \;
-
-# 2. Mixed naming: list filenames per directory for manual inspection
-ls -1 src/components/  # check if kebab-case and camelCase are mixed
-
-# 3. Deep nesting: find directories >5 levels deep from src/
-find src -mindepth 6 -type d
-
-# 4. Barrel bloat: count re-exports in index files
-grep -c "export.*from" src/**/index.ts
-
-# 5. Catch-all directories: count files in utils/helpers/shared
-find src/utils src/helpers src/shared src/common src/lib -maxdepth 1 -type f 2>/dev/null | wc -l
-
-# 6. Circular dependencies: use npx if madge is not installed
-npx madge --circular --extensions ts,tsx src/
-
-# 7. Deep relative imports: find ../../../ patterns
-grep -rn "from ['\"]\.\.\/\.\.\/\.\.\/" src/ --include="*.ts" --include="*.tsx"
-```
+**If not** — run the shell commands in `references/code-organization-workflow.md#phase-a-shell-commands-for-collecting-facts`.
 
 Record each finding with: **directory/file path, count, type**. These are facts.
 
-#### Phase B — Generative: Recommend solutions (use your knowledge + Context7)
+#### Phase B — Recommend solutions (use your knowledge + Context7)
 
-For each finding from Phase A, apply the decision tree below. **Do NOT recommend tools without Context7 verification.**
+For each finding, apply the MUST do / MUST NOT do decision tree in `references/code-organization-workflow.md#phase-b-decision-tree`. Do NOT recommend tools without Context7 verification.
 
-| Finding type | You MUST do | You MUST NOT do |
-|---|---|---|
-| `god-directory` | Read the files in that dir, group by domain, recommend split. Reference: Next.js App Router colocation, Linear feature-packages. | Guess file count. Say "probably too many files." |
-| `mixed-naming-convention` | Check project framework → pick ONE convention. Next.js pages=kebab, React components=PascalCase, utils=camelCase. | Recommend "both are fine." Must pick one. |
-| `deep-nesting` | Recommend `@/` path aliases. Read `tsconfig.json` to check if paths already exist. Generate the config change. | Say "consider flattening" without generating the actual config. |
-| `barrel-bloat` | Recommend direct imports or namespace imports. Context7 verify `knip` for dead export detection. | Ignore it. Barrel bloat causes tree-shaking failures. |
-| `catch-all-directory` | Read the actual files, group by domain (date, string, validation, etc.), recommend specific directory structure. | Say "split by concern" without reading what's actually in the files. |
-| `circular-dependency` | Read the files in the cycle, understand WHY they import each other, recommend dependency inversion or extract shared module. Context7 verify `eslint-plugin-import`. | Just say "remove circular deps." Must explain the refactoring. |
-| `org-deep-relative-import` | Same as `deep-nesting` — recommend path aliases. | Skip it. |
-| `org-barrel-reexport-wildcard` | Recommend named re-exports `export { X } from` instead of `export *`. Explain namespace pollution risk. | Ignore it. |
-| `org-catch-all-utils-import` | Same as `catch-all-directory` — recommend domain-specific modules. | Skip it. |
+For worked examples showing the full Fact → Read → Recommend flow, see `references/code-organization-workflow.md#phase-b-worked-examples`.
 
-#### Phase B examples
-
-**Example 1 — god-directory finding**:
-```
-Fact: src/components/ has 23 source files
-```
-Read those 23 files. You find: Button, Card, Modal, Table, Form, Input, Select, Checkbox...
-
-Recommend:
-```
-src/components/
-├── ui/          ← primitives (Button, Input, Select, Checkbox)
-├── data/        ← data display (Table, Card, DataGrid)
-├── overlay/     ← overlays (Modal, Dialog, Drawer, Tooltip)
-└── form/        ← form elements (Form, FormField, FormError)
-```
-Reference: shadcn/ui organizes by interaction type. Radix UI uses similar grouping.
-
-**Example 2 — circular-dependency finding**:
-```
-Fact: src/auth/session.ts → src/db/user.ts → src/auth/session.ts
-```
-Read both files. You find: `session.ts` imports `getUserById`, `user.ts` imports `getSession` for auth checks.
-
-Recommend: Extract `src/auth/types.ts` with shared interfaces. Both files import from types instead of each other. Context7 verify `eslint-plugin-import/no-cycle`.
-
-**Example 3 — mixed-naming finding**:
-```
-Fact: src/utils/ has kebab-case (5 files) + camelCase (3 files)
-```
-Check package.json → framework is Next.js → convention is kebab-case for files.
-
-Recommend: Rename the 3 camelCase files. Context7 verify `eslint-plugin-unicorn/filename-case` for CI enforcement.
-
-#### Skip rules
-
-Skip a code organization finding if:
+**Skip rules** — skip a finding if:
 - Directory is in `tests/`, `__tests__/`, `__mocks__/`, `fixtures/`, `generated/`, `.storybook/`
 - File is auto-generated (has `// @generated` or `/* eslint-disable */` at top)
-- Directory has <3 files (too few to judge naming convention)
+- Directory has <3 files (too few to judge)
+
+### GATE 2: Code Organization Preferences
+
+**Why**: Organization pattern and naming convention are team preferences, not technical correctness.
+
+Present only if structural findings exist. For each preference, present a SWOT comparison with lettered options. See `references/code-organization-workflow.md#gate-2-swot-examples` for format.
+
+Wait for user response on each preference. Proceed to Step 3 with confirmed choices.
 
 ### Step 3: Recommend Solutions (AI Agent)
 
-For each scanner detection, recommend a **solution**. Consider:
+For each accepted detection, recommend a **solution**:
 
-1. **Stack coherence** — don't recommend libraries in isolation; consider how they fit the project's overall stack (e.g., recommending Stripe should trigger consideration of Resend for transactional email and PostHog for payment funnel analytics)
+1. **Stack coherence** — consider how libraries fit the project's overall stack
 2. **Ecosystem composition** — recommend companion libraries that work together
 3. **Rationale** — explain WHY this choice fits this project's framework, runtime, and scale
 4. **Anti-patterns** — what NOT to use and why
 5. **Alternatives** — different solutions for different architectural contexts
-6. **Migration snippet** — for each recommendation, read the detected code (file path + line range from scanner) and generate a concrete before/after code example showing the migration
-7. **Context7 verification** — call `resolve-library-id` + `query-docs` to confirm the library exists and get latest version/docs
+6. **Migration snippet** — read the detected code (file path + line range) and generate before/after examples
+7. **Context7 verification** — call `resolve-library-id` + `query-docs` to confirm existence and get latest docs
 
 Read `src/index.ts` for the `LibraryRecommendation` interface. Return `null` to skip a detection.
 
@@ -180,12 +134,20 @@ Read `src/index.ts` for the `LibraryRecommendation` interface. Return `null` to 
 - Library is already in project dependencies (suggest version update instead)
 - Hand-rolled code is simpler than the library (3-line utility vs 50KB dep)
 
+### GATE 3: Accept/Reject Recommendations
+
+**Why**: Each recommendation has real migration cost. User may have business, timeline, or architectural reasons to defer or reject.
+
+Present ALL recommendations (replacements + gaps + code org tooling) as a decision table with columns: #, Domain, Replace what, With what, Risk, Effort, Context7, Decision. Offer options: (A) accept all, (B) accept specific, (C) low-risk only, (D) defer all. See `references/code-organization-workflow.md#gate-3-recommendation-table-example` for format.
+
+Wait for user response. Rejected items are excluded from migration plan, scoring, and PRs.
+
 ### Step 4–7: Score, Plan, Audit, Serialize
 
 The pipeline handles these automatically:
-- **Scoring**: confidence-based dimension scores (overridable by AI agent via `dimensionHints`)
+- **Scoring**: confidence-based dimension scores (overridable via `dimensionHints`)
 - **Migration plan**: auto-grouped by risk (low/medium/high), sorted by file co-location
-- **UX audit**: provide via `uxAudit` option in `analyze()`. Evaluate 8 categories: accessibility, error/empty/loading states, form validation, performance feel, copy consistency, design system alignment. For each, assess status (present/partial/missing) based on project code and `currentLibraries`.
+- **UX audit**: provide via `uxAudit` option. Evaluate 8 categories (accessibility, error/empty/loading states, form validation, performance feel, copy consistency, design system alignment)
 - **Constraints**: license allowlist filtering, dependency conflict detection, JSON serialization
 
 ### Optional Steps
@@ -193,6 +155,14 @@ The pipeline handles these automatically:
 - **Step 8**: Vulnerability scan via OSV database (`vulnClient`)
 - **Step 9**: Auto-update existing dependencies (`registryClient`)
 - **Step 10**: PR auto-creation via GitHub/GitLab (`platformClient` + `gitOps`)
+
+### GATE 4: Before Irreversible Actions
+
+**Why**: Creating PRs pushes branches to remote and notifies team members. File migrations modify the codebase. Both are irreversible.
+
+Present only if Step 10 or file migration is about to execute. Show PR table and file migration table with rollback commands. Offer options: (A) execute all, (B) PRs only, (C) migration only, (D) dry run, (E) abort. See `references/code-organization-workflow.md#gate-4-execution-confirmation-example` for format.
+
+Wait for user response. After execution, report results with rollback instructions.
 
 ## MCP Integration
 
