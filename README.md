@@ -478,13 +478,3 @@ See [CHANGELOG.md](./CHANGELOG.md) for version history.
 ## License
 
 [MIT](./LICENSE) &copy; [Nebutra](https://github.com/Nebutra)
-
----
-
-## Installation via Vercel Skills
-
-```bash
-npx skills add Nebutra/Next-Unicorn-Skill
-```
-
-This will install the skill for supported AI agents including OpenCode, Claude Code, Codex, Cursor, and more.
