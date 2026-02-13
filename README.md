@@ -44,6 +44,16 @@ Snyk, Dependabot, and Renovate manage your *existing* dependencies. They can't f
 
 ## Quick Start
 
+### From Vercel Skills (Recommended)
+
+```bash
+npx skills add Nebutra/Next-Unicorn-Skill
+```
+
+Supported agents: OpenCode, Claude Code, Codex, Cursor, and 35+ more.
+
+---
+
 ### From Smithery (recommended)
 
 Browse and install directly from the Smithery skill registry:
